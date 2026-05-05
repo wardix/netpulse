@@ -11,7 +11,8 @@
     "seed": "bun src/db/seed.ts",
     "format": "biome format --write .",
     "lint": "biome lint .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
   },
   "keywords": [
     "mikrotik",
@@ -28,7 +29,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "husky": "^9.1.7"
   },
   "peerDependencies": {
     "typescript": "^5"
