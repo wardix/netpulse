@@ -25,7 +25,7 @@ const routerService = new RouterService(routerRepo)
 // Setup Routes
 setupRoutes(app, monitorService, routerService)
 
-const port = parseInt(process.env.PORT || '3000')
+const port = parseInt(process.env.PORT || '3000', 10)
 
 Bun.serve({
   port: port,

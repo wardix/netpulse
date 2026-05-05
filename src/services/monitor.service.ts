@@ -46,7 +46,7 @@ export class MonitorService {
     return session || { status: 'offline', ip: ip }
   }
 
-  getBulkStatus(ips: string[]): any[] {
+  getBulkStatus(ips: string[]): (Session | { ip: string; status: 'offline' })[] {
     const sessions = this.sessionRepo.findByIps(ips)
     return ips.map((ip) => {
       const s = sessions.find((session) => session.ip_address === ip)

@@ -1,6 +1,6 @@
 import { Database } from 'bun:sqlite'
-import { join, dirname } from 'path'
-import { mkdirSync } from 'fs'
+import { join, dirname } from 'node:path'
+import { mkdirSync } from 'node:fs'
 
 const defaultPath = join(process.cwd(), 'data', 'monitor.db')
 const dbPath = process.env.DB_PATH || defaultPath

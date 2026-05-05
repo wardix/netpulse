@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import type { Hono } from 'hono'
 import type { MonitorService, RouterService } from '../services/monitor.service'
 
 export const setupRoutes = (
