@@ -1,0 +1,36 @@
+{
+  "name": "netpulse",
+  "version": "1.0.0",
+  "description": "Multi-MikroTik PPPoE Online Monitor API",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.ts",
+    "dev": "bun --watch src/index.ts",
+    "seed": "bun src/db/seed.ts",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mikrotik",
+    "pppoe",
+    "monitor",
+    "bun",
+    "hono",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "hono": "^4.12.16"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
