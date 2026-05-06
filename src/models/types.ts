@@ -1,7 +1,6 @@
 export interface Router {
   id: string
-  host: string
-  port: number
+  base_url: string
   username: string
   password: string
 }

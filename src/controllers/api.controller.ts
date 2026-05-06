@@ -64,6 +64,14 @@ export const setupRoutes = (
 
   app.post('/api/routers', async (c) => {
     const router = await c.req.json()
+    if (!router?.base_url || !router?.username || !router?.password) {
+      return c.json(
+        { error: 'Missing required fields: base_url, username, password' },
+        400
+      )
+    }
+    // normalize base_url (remove trailing slash)
+    router.base_url = router.base_url.replace(/\/+$|\/$/, '')
     routerService.addRouter(router)
     return c.json({ message: 'Router saved' })
   })

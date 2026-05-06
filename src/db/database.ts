@@ -15,8 +15,7 @@ const db = new Database(dbPath, { create: true })
 db.run(`
   CREATE TABLE IF NOT EXISTS routers (
     id TEXT PRIMARY KEY,
-    host TEXT NOT NULL,
-    port INTEGER NOT NULL DEFAULT 80,
+    base_url TEXT NOT NULL,
     username TEXT NOT NULL,
     password TEXT NOT NULL
   )

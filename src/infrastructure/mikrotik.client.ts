@@ -3,7 +3,8 @@ import type { MikrotikActiveSession, Router } from '../models/types'
 export class MikrotikClient {
   async getActiveSessions(router: Router): Promise<MikrotikActiveSession[]> {
     const auth = btoa(`${router.username}:${router.password}`)
-    const url = `http://${router.host}:${router.port}/rest/ppp/active?.proplist=name,address,uptime`
+    const base = router.base_url.replace(/\/$/, '')
+    const url = `${base}/rest/ppp/active?.proplist=name,address,uptime`
 
     try {
       const response = await fetch(url, {
