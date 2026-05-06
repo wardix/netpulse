@@ -14,8 +14,8 @@ export class RouterRepository {
 
   save(router: Router): void {
     db.run(
-      'INSERT OR REPLACE INTO routers (id, host, port, username, password) VALUES (?, ?, ?, ?, ?)',
-      [router.id, router.host, router.port, router.username, router.password]
+      'INSERT OR REPLACE INTO routers (id, base_url, username, password) VALUES (?, ?, ?, ?)',
+      [router.id, router.base_url, router.username, router.password]
     )
   }
 
