@@ -19,10 +19,14 @@ const sampleRouters = [
 
 console.log('🌱 Seeding database with sample routers...')
 
-for (const router of sampleRouters) {
-  routerRepo.save(router)
-  console.log(`✅ Router added: ${router.id} (${router.base_url})`)
+async function main() {
+  for (const router of sampleRouters) {
+    await routerRepo.save(router)
+    console.log(`✅ Router added: ${router.id} (${router.base_url})`)
+  }
+
+  console.log('✨ Seeding completed.')
+  process.exit(0)
 }
 
-console.log('✨ Seeding completed.')
-process.exit(0)
+await main()
