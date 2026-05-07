@@ -32,8 +32,11 @@ export const setupRoutes = (
 
   // Force Sync
   app.get('/api/sync', async (c) => {
-    await monitorService.syncAllRouters()
-    return c.json({ message: 'Sync completed' })
+    // Run sync in the background
+    monitorService.syncAllRouters().catch((err) => {
+      console.error('[Sync] Background sync error:', err)
+    })
+    return c.json({ message: 'Sync started in the background' }, 202)
   })
 
   // --- WEBHOOK ROUTES ---
