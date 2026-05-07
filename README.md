@@ -9,20 +9,41 @@
 - **Auto-Sync:** Sinkronisasi massal database dengan status real-time router via REST API.
 - **High Performance:** Menggunakan Bun SQL murni (Raw SQL) untuk akses database super cepat.
 
-## 🚀 Instalasi
+## ⚙️ Konfigurasi Environment
+
+Buat file `.env` di root direktori atau salin dari `.env.example`:
+```env
+PORT=3000
+DB_PATH=data/monitor.db
+```
+
+## 🚀 Instalasi & Menjalankan
 
 1. **Clone & Install:**
    ```bash
    bun install
    ```
 
-2. **Jalankan Server:**
+2. **Seed Data (Opsional):**
+   Gunakan script seed untuk mengisi data router sampel:
    ```bash
-   bun run src/index.ts
+   bun run seed
    ```
-   Server akan berjalan di port `3000`.
 
-## 🛠️ Konfigurasi MikroTik
+3. **Jalankan Server:**
+   - **Mode Produksi:** `bun run start`
+   - **Mode Development:** `bun run dev`
+
+Server akan berjalan di port yang ditentukan (default: `3000`).
+
+## 🛠️ Pengembangan
+
+Proyek ini menggunakan **Biome** untuk pemformatan dan linting kode, serta **Husky** untuk validasi pre-commit.
+
+- **Format Kode:** `bun run format`
+- **Linting:** `bun run lint`
+
+## 📡 Konfigurasi MikroTik
 
 Daftarkan router Anda ke NetPulse melalui API:
 ```bash
@@ -30,8 +51,7 @@ curl -X POST http://localhost:3000/api/routers \
   -H "Content-Type: application/json" \
   -d '{
     "id": "Mikrotik-Pusat",
-    "host": "192.168.88.1",
-    "port": 80,
+    "base_url": "http://192.168.88.1",
     "username": "admin",
     "password": "yourpassword"
   }'
