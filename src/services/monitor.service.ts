@@ -12,12 +12,20 @@ export class MonitorService {
 
   async syncAllRouters(): Promise<void> {
     const routers = this.routerRepo.findAll()
+    console.log(
+      `[Sync] Starting synchronization for ${routers.length} routers...`
+    )
 
     for (const router of routers) {
+      console.log(
+        `[Sync] Fetching active sessions from router: ${router.id} (${router.base_url})...`
+      )
       const activeSessions = await this.mikrotikClient.getActiveSessions(router)
+      console.log(
+        `[Sync] Received ${activeSessions.length} active sessions from ${router.id}.`
+      )
 
       // Mark all as offline for this router first, then update online ones
-      // Or more efficiently: update in a transaction
       this.sessionRepo.setAllOfflineForRouter(router.id)
 
       for (const s of activeSessions) {
@@ -29,7 +37,9 @@ export class MonitorService {
           s.uptime
         )
       }
+      console.log(`[Sync] Database updated for router: ${router.id}.`)
     }
+    console.log('[Sync] All routers synchronized successfully.')
   }
 
   updateFromWebhook(
@@ -38,6 +48,9 @@ export class MonitorService {
     ip: string,
     status: 'online' | 'offline'
   ): void {
+    console.log(
+      `[Webhook] Received ${status} event for user: ${username} (IP: ${ip}) from router: ${routerId}`
+    )
     this.sessionRepo.updateStatus(routerId, username, ip, status)
   }
 
