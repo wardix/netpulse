@@ -6,11 +6,14 @@ export class MikrotikClient {
     const base = router.base_url.replace(/\/$/, '')
     const url = `${base}/rest/ppp/active?.proplist=name,address,uptime`
 
+    const timeoutMs = parseInt(process.env.MIKROTIK_TIMEOUT || '5000', 10)
+
     try {
       const response = await fetch(url, {
         headers: {
           Authorization: `Basic ${auth}`,
         },
+        signal: AbortSignal.timeout(timeoutMs),
       })
 
       if (!response.ok) {
