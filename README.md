@@ -91,5 +91,8 @@ src/
 └── models/         # TypeScript Interfaces
 ```
 
+## Deployment
+See DEPLOY.md for detailed deployment instructions (PostgreSQL via DATABASE_URL, SQLite fallback, and seeding).
+
 ---
 Dibuat dengan ❤️ menggunakan [Bun](https://bun.sh) dan [Hono](https://hono.dev).
