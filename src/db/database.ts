@@ -48,7 +48,8 @@ if (DATABASE_URL) {
     query: (sql: string) => {
       return {
         all: async (...params: any[]) => {
-          const parts = sql.split('?')
+          const parts = sql.split('?') as any
+          parts.raw = parts
           const res = await (client as any)(parts, ...params)
           return (res ?? []) as Row[]
         },
@@ -59,7 +60,8 @@ if (DATABASE_URL) {
       }
     },
     run: async (sql: string, params: any[] = []) => {
-      const parts = sql.split('?')
+      const parts = sql.split('?') as any
+      parts.raw = parts
       await (client as any)(parts, ...params)
     },
   }
