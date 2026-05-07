@@ -2,24 +2,24 @@ import db from '../db/database'
 import type { Router } from '../models/types'
 
 export class RouterRepository {
-  findAll(): Router[] {
-    return db.query('SELECT * FROM routers').all() as Router[]
+  async findAll(): Promise<Router[]> {
+    return (await db.query('SELECT * FROM routers').all()) as Router[]
   }
 
-  findById(id: string): Router | null {
-    return db
+  async findById(id: string): Promise<Router | null> {
+    return (await db
       .query('SELECT * FROM routers WHERE id = ?')
-      .get(id) as Router | null
+      .get(id)) as Router | null
   }
 
-  save(router: Router): void {
-    db.run(
-      'INSERT OR REPLACE INTO routers (id, base_url, username, password) VALUES (?, ?, ?, ?)',
+  async save(router: Router): Promise<void> {
+    await db.run(
+      'INSERT INTO routers (id, base_url, username, password) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET base_url = excluded.base_url, username = excluded.username, password = excluded.password',
       [router.id, router.base_url, router.username, router.password]
     )
   }
 
-  delete(id: string): void {
-    db.run('DELETE FROM routers WHERE id = ?', [id])
+  async delete(id: string): Promise<void> {
+    await db.run('DELETE FROM routers WHERE id = ?', [id])
   }
 }

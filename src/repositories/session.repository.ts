@@ -2,33 +2,33 @@ import db from '../db/database'
 import type { Session } from '../models/types'
 
 export class SessionRepository {
-  findByIp(ip: string): Session | null {
-    return db
+  async findByIp(ip: string): Promise<Session | null> {
+    return (await db
       .query('SELECT * FROM sessions WHERE ip_address = ?')
-      .get(ip) as Session | null
+      .get(ip)) as Session | null
   }
 
-  findByIps(ips: string[]): Session[] {
+  async findByIps(ips: string[]): Promise<Session[]> {
     const placeholders = ips.map(() => '?').join(',')
-    return db
+    return (await db
       .query(`SELECT * FROM sessions WHERE ip_address IN (${placeholders})`)
-      .all(...ips) as Session[]
+      .all(...ips)) as Session[]
   }
 
-  findAllOnline(): Session[] {
-    return db
+  async findAllOnline(): Promise<Session[]> {
+    return (await db
       .query("SELECT * FROM sessions WHERE status = 'online'")
-      .all() as Session[]
+      .all()) as Session[]
   }
 
-  updateStatus(
+  async updateStatus(
     router_id: string,
     username: string,
     ip: string,
     status: 'online' | 'offline',
     uptime?: string
-  ): void {
-    db.run(
+  ): Promise<void> {
+    await db.run(
       `INSERT INTO sessions (router_id, username, ip_address, status, uptime, last_update) 
        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
        ON CONFLICT(username, router_id) DO UPDATE SET 
@@ -40,8 +40,8 @@ export class SessionRepository {
     )
   }
 
-  setAllOfflineForRouter(router_id: string): void {
-    db.run("UPDATE sessions SET status = 'offline' WHERE router_id = ?", [
+  async setAllOfflineForRouter(router_id: string): Promise<void> {
+    await db.run("UPDATE sessions SET status = 'offline' WHERE router_id = ?", [
       router_id,
     ])
   }

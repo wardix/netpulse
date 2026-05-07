@@ -9,9 +9,10 @@ export const setupRoutes = (
   // --- SESSION ROUTES ---
 
   // Check single IP
-  app.get('/api/status/:ip', (c) => {
+  app.get('/api/status/:ip', async (c) => {
     const ip = c.req.param('ip')
-    return c.json(monitorService.getStatusByIp(ip))
+    const result = await monitorService.getStatusByIp(ip)
+    return c.json(result)
   })
 
   // Bulk check IPs
@@ -19,12 +20,14 @@ export const setupRoutes = (
     const { ips } = await c.req.json()
     if (!Array.isArray(ips))
       return c.json({ error: 'ips must be an array' }, 400)
-    return c.json(monitorService.getBulkStatus(ips))
+    const result = await monitorService.getBulkStatus(ips)
+    return c.json(result)
   })
 
   // List all online
-  app.get('/api/online', (c) => {
-    return c.json(monitorService.getAllOnline())
+  app.get('/api/online', async (c) => {
+    const result = await monitorService.getAllOnline()
+    return c.json(result)
   })
 
   // Force Sync
@@ -46,7 +49,7 @@ export const setupRoutes = (
 
     if (!username) return c.json({ error: 'Missing user' }, 400)
 
-    monitorService.updateFromWebhook(
+    await monitorService.updateFromWebhook(
       routerId,
       username,
       ip || '',
@@ -58,8 +61,9 @@ export const setupRoutes = (
 
   // --- ROUTER MANAGEMENT ---
 
-  app.get('/api/routers', (c) => {
-    return c.json(routerService.listRouters())
+  app.get('/api/routers', async (c) => {
+    const routers = await routerService.listRouters()
+    return c.json(routers)
   })
 
   app.post('/api/routers', async (c) => {
@@ -72,12 +76,12 @@ export const setupRoutes = (
     }
     // normalize base_url (remove trailing slash)
     router.base_url = router.base_url.replace(/\/+$|\/$/, '')
-    routerService.addRouter(router)
+    await routerService.addRouter(router)
     return c.json({ message: 'Router saved' })
   })
 
-  app.delete('/api/routers/:id', (c) => {
-    routerService.deleteRouter(c.req.param('id'))
+  app.delete('/api/routers/:id', async (c) => {
+    await routerService.deleteRouter(c.req.param('id'))
     return c.json({ message: 'Router deleted' })
   })
 }

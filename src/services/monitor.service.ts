@@ -11,7 +11,7 @@ export class MonitorService {
   ) {}
 
   async syncAllRouters(): Promise<void> {
-    const routers = this.routerRepo.findAll()
+    const routers = await this.routerRepo.findAll()
     console.log(
       `[Sync] Starting synchronization for ${routers.length} routers...`
     )
@@ -26,10 +26,10 @@ export class MonitorService {
       )
 
       // Mark all as offline for this router first, then update online ones
-      this.sessionRepo.setAllOfflineForRouter(router.id)
+      await this.sessionRepo.setAllOfflineForRouter(router.id)
 
       for (const s of activeSessions) {
-        this.sessionRepo.updateStatus(
+        await this.sessionRepo.updateStatus(
           router.id,
           s.name,
           s.address,
@@ -42,50 +42,52 @@ export class MonitorService {
     console.log('[Sync] All routers synchronized successfully.')
   }
 
-  updateFromWebhook(
+  async updateFromWebhook(
     routerId: string,
     username: string,
     ip: string,
     status: 'online' | 'offline'
-  ): void {
+  ): Promise<void> {
     console.log(
       `[Webhook] Received ${status} event for user: ${username} (IP: ${ip}) from router: ${routerId}`
     )
-    this.sessionRepo.updateStatus(routerId, username, ip, status)
+    await this.sessionRepo.updateStatus(routerId, username, ip, status)
   }
 
-  getStatusByIp(ip: string): Session | { status: 'offline'; ip: string } {
-    const session = this.sessionRepo.findByIp(ip)
+  async getStatusByIp(
+    ip: string
+  ): Promise<Session | { status: 'offline'; ip: string }> {
+    const session = await this.sessionRepo.findByIp(ip)
     return session || { status: 'offline', ip: ip }
   }
 
-  getBulkStatus(
+  async getBulkStatus(
     ips: string[]
-  ): (Session | { ip: string; status: 'offline' })[] {
-    const sessions = this.sessionRepo.findByIps(ips)
+  ): Promise<(Session | { ip: string; status: 'offline' })[]> {
+    const sessions = await this.sessionRepo.findByIps(ips)
     return ips.map((ip) => {
       const s = sessions.find((session) => session.ip_address === ip)
       return s || { ip, status: 'offline' }
     })
   }
 
-  getAllOnline(): Session[] {
-    return this.sessionRepo.findAllOnline()
+  async getAllOnline(): Promise<Session[]> {
+    return await this.sessionRepo.findAllOnline()
   }
 }
 
 export class RouterService {
   constructor(private routerRepo: RouterRepository) {}
 
-  addRouter(router: Router): void {
-    this.routerRepo.save(router)
+  async addRouter(router: Router): Promise<void> {
+    await this.routerRepo.save(router)
   }
 
-  listRouters(): Router[] {
-    return this.routerRepo.findAll()
+  async listRouters(): Promise<Router[]> {
+    return await this.routerRepo.findAll()
   }
 
-  deleteRouter(id: string): void {
-    this.routerRepo.delete(id)
+  async deleteRouter(id: string): Promise<void> {
+    await this.routerRepo.delete(id)
   }
 }
