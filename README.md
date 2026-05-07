@@ -1,6 +1,6 @@
 # NetPulse 🌐
 
-**NetPulse** adalah layanan API monitoring terpusat untuk memantau status online/offline pelanggan PPPoE dari berbagai router MikroTik secara real-time. Dibangun menggunakan **Bun**, **Hono**, dan **SQLite** dengan arsitektur yang ringan dan performa tinggi.
+**NetPulse** adalah layanan API monitoring terpusat untuk memantau status online/offline pelanggan PPPoE dari berbagai router MikroTik secara real-time. Dibangun menggunakan **Bun**, **Hono**, serta dukungan database **PostgreSQL** dan **SQLite** dengan arsitektur yang ringan dan performa tinggi.
 
 ## ✨ Fitur Utama
 - **Multi-Router Support:** Pantau banyak MikroTik PPPoE Server dari satu dashboard API.

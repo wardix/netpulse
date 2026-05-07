@@ -16,14 +16,14 @@ This document serves as the foundational mandate for the NetPulse project. All f
 
 - **Runtime:** Bun
 - **Framework:** Hono
-- **Database:** SQLite via built-in `bun:sqlite`.
+- **Database:** PostgreSQL via `bun:sql` (primary) with fallback to SQLite via `bun:sqlite`.
 - **Formatting & Linting:** Biome (Indent: space, Quote: single, Semicolons: as needed).
 - **Communication:** MikroTik REST API (v7+).
 
 ## 📝 Coding Standards
 
-- **SQL:** Always use Raw SQL with `db.prepare()` or `db.run()`. Use explicit transactions where necessary.
-- **Portability:** Read configuration (Port, DB Path) from environment variables with sensible defaults.
+- **SQL:** Always use Raw SQL via the `db.query()` and `db.run()` abstraction wrapper (supporting both Postgres and SQLite). Use explicit transactions where necessary.
+- **Portability:** Read configuration (Port, DATABASE_URL, DB Path) from environment variables with sensible defaults.
 - **Types:** Ensure strict typing for all interfaces and function signatures.
 - **Formatting:** Run `bun run format` before finalizing any code changes.
 
