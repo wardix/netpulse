@@ -13,36 +13,50 @@ export class MonitorService {
   async syncAllRouters(): Promise<void> {
     const routers = await this.routerRepo.findAll()
     console.log(
-      `[Sync] Starting synchronization for ${routers.length} routers...`
+      `[Sync] Starting parallel sync for ${routers.length} routers...`
     )
 
-    for (const router of routers) {
-      console.log(
-        `[Sync] Fetching active sessions from router: ${router.id} (${router.base_url})...`
-      )
-      const activeSessions = await this.mikrotikClient.getActiveSessions(router)
-      console.log(
-        `[Sync] Received ${activeSessions.length} active sessions from ${router.id}.`
-      )
-
-      // 1. Upsert all currently active sessions to 'online'
-      for (const s of activeSessions) {
-        await this.sessionRepo.updateStatus(
-          router.id,
-          s.name,
-          s.address,
-          'online',
-          s.uptime
+    const results = await Promise.allSettled(
+      routers.map(async (router) => {
+        console.log(
+          `[Sync] Fetching from router: ${router.id} (${router.base_url})...`
         )
-      }
+        const activeSessions =
+          await this.mikrotikClient.getActiveSessions(router)
+        console.log(
+          `[Sync] ${activeSessions.length} active sessions from ${router.id}`
+        )
 
-      // 2. Mark as offline only those who were online but are no longer active
-      const activeUsernames = activeSessions.map((s) => s.name)
-      await this.sessionRepo.setOfflineIfNotIn(router.id, activeUsernames)
+        // 1. Upsert all currently active sessions to 'online'
+        for (const s of activeSessions) {
+          await this.sessionRepo.updateStatus(
+            router.id,
+            s.name,
+            s.address,
+            'online',
+            s.uptime
+          )
+        }
 
-      console.log(`[Sync] Database updated for router: ${router.id}.`)
+        // 2. Mark as offline only those who were online but are no longer active
+        const activeUsernames = activeSessions.map((s) => s.name)
+        await this.sessionRepo.setOfflineIfNotIn(router.id, activeUsernames)
+
+        console.log(`[Sync] Database updated for router: ${router.id}`)
+      })
+    )
+
+    const failed = results.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected'
+    )
+    if (failed.length > 0) {
+      console.error(
+        `[Sync] ${failed.length} router(s) failed to sync:`,
+        failed.map((r) => r.reason?.message || r.reason).join(', ')
+      )
     }
-    console.log('[Sync] All routers synchronized successfully.')
+
+    console.log('[Sync] Parallel sync completed.')
   }
 
   async updateFromWebhook(
