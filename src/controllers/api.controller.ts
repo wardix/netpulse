@@ -46,9 +46,13 @@ export const setupRoutes = (
 
   app.post('/api/webhook/:router_id/:event', async (c) => {
     const routerId = c.req.param('router_id')
-    const event = c.req.param('event') as 'up' | 'down'
+    const event = c.req.param('event')
 
-    // Mikrotik sends data as form-urlencoded usually with /tool fetch http-data
+    // Validate event parameter — only 'up' and 'down' are valid
+    if (event !== 'up' && event !== 'down') {
+      return c.json({ error: 'Invalid event. Must be "up" or "down"' }, 400)
+    }
+
     const body = await c.req.parseBody()
     const username = body.user as string
     const ip = body.ip as string
