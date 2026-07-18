@@ -45,24 +45,18 @@ if (DATABASE_URL) {
   await client`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_user_router ON sessions(username, router_id)`
 
   db = {
-    query: (sql: string) => {
-      return {
-        all: async (...params: any[]) => {
-          const parts = sql.split('?') as any
-          parts.raw = parts
-          const res = await (client as any)(parts, ...params)
-          return (res ?? []) as Row[]
-        },
-        get: async (...params: any[]) => {
-          const rows = await db.query(sql).all(...params)
-          return rows[0] || null
-        },
-      }
-    },
-    run: async (sql: string, params: any[] = []) => {
-      const parts = sql.split('?') as any
-      parts.raw = parts
-      await (client as any)(parts, ...params)
+    query: (sql: string) => ({
+      all: async (...params: unknown[]) => {
+        const result = await client.unsafe(sql, params)
+        return (result ?? []) as Row[]
+      },
+      get: async (...params: unknown[]) => {
+        const rows = await client.unsafe(sql, params)
+        return ((rows ?? [])[0] ?? null) as Row | null
+      },
+    }),
+    run: async (sql: string, params: unknown[] = []) => {
+      await client.unsafe(sql, params)
     },
   }
 } else {
