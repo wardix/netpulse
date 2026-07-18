@@ -20,6 +20,9 @@ export class RouterRepository {
   }
 
   async delete(id: string): Promise<void> {
+    // Delete associated sessions first (FK constraint order)
+    await db.run('DELETE FROM sessions WHERE router_id = ?', [id])
+    // Then delete the router itself
     await db.run('DELETE FROM routers WHERE id = ?', [id])
   }
 }
