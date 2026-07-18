@@ -9,6 +9,8 @@ export class SessionRepository {
   }
 
   async findByIps(ips: string[]): Promise<Session[]> {
+    if (ips.length === 0) return []
+
     const placeholders = ips.map(() => '?').join(',')
     return (await db
       .query(`SELECT * FROM sessions WHERE ip_address IN (${placeholders})`)

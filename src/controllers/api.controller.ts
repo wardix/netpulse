@@ -23,6 +23,7 @@ export const setupRoutes = (
     const { ips } = await c.req.json()
     if (!Array.isArray(ips))
       return c.json({ error: 'ips must be an array' }, 400)
+    if (ips.length === 0) return c.json([])
     const result = await monitorService.getBulkStatus(ips)
     return c.json(result)
   })
