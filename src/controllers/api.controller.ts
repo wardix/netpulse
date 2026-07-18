@@ -1,4 +1,5 @@
 import type { Hono } from 'hono'
+import { apiKeyAuth } from '../middlewares/auth.middleware'
 import type { MonitorService, RouterService } from '../services/monitor.service'
 
 export const setupRoutes = (
@@ -6,6 +7,8 @@ export const setupRoutes = (
   monitorService: MonitorService,
   routerService: RouterService
 ) => {
+  // Apply API key authentication to all /api/* routes
+  app.use('/api/*', apiKeyAuth)
   // --- SESSION ROUTES ---
 
   // Check single IP
