@@ -34,7 +34,7 @@ export const setupRoutes = (
   })
 
   // Force Sync
-  app.get('/api/sync', async (c) => {
+  app.post('/api/sync', async (c) => {
     // Run sync in the background
     monitorService.syncAllRouters().catch((err) => {
       console.error('[Sync] Background sync error:', err)

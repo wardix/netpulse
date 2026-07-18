@@ -91,7 +91,7 @@ Pasang script berikut pada **PPP Profile** di MikroTik Anda (Tab Scripts):
 | `/api/status/:ip` | `GET` | Cek status satu IP (Online/Offline) |
 | `/api/status/bulk` | `POST` | Cek banyak IP sekaligus (Body: `{"ips": ["..."]}`) |
 | `/api/online` | `GET` | Daftar semua pelanggan yang sedang online |
-| `/api/sync` | `GET` | Paksa sinkronisasi ulang dengan seluruh router |
+| `/api/sync` | `POST` | Paksa sinkronisasi ulang dengan seluruh router |
 | `/api/routers` | `GET/POST` | Manajemen daftar router MikroTik |
 
 ## 🏗️ Layered Architecture
