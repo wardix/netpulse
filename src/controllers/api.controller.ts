@@ -71,22 +71,88 @@ export const setupRoutes = (
 
   // --- ROUTER MANAGEMENT ---
 
+  // Validation helper for router input
+  function validateRouter(
+    body: unknown
+  ): { valid: true; data: Router } | { valid: false; error: string } {
+    if (typeof body !== 'object' || body === null) {
+      return { valid: false, error: 'Request body must be a JSON object' }
+    }
+
+    const r = body as Record<string, unknown>
+
+    // Validate ID
+    if (!r.id || typeof r.id !== 'string' || r.id.trim() === '') {
+      return {
+        valid: false,
+        error: '"id" is required and must be a non-empty string',
+      }
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(r.id as string)) {
+      return {
+        valid: false,
+        error:
+          '"id" must only contain letters, numbers, hyphens, and underscores',
+      }
+    }
+
+    // Validate base_url
+    if (!r.base_url || typeof r.base_url !== 'string') {
+      return { valid: false, error: '"base_url" is required' }
+    }
+    try {
+      const url = new URL(r.base_url as string)
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        return {
+          valid: false,
+          error: '"base_url" must start with http:// or https://',
+        }
+      }
+    } catch {
+      return { valid: false, error: '"base_url" must be a valid URL' }
+    }
+
+    // Validate username
+    if (
+      !r.username ||
+      typeof r.username !== 'string' ||
+      r.username.trim() === ''
+    ) {
+      return {
+        valid: false,
+        error: '"username" is required and must be a non-empty string',
+      }
+    }
+
+    // Validate password
+    if (!r.password || typeof r.password !== 'string') {
+      return { valid: false, error: '"password" is required' }
+    }
+
+    // Return sanitized data
+    return {
+      valid: true,
+      data: {
+        id: (r.id as string).trim(),
+        base_url: (r.base_url as string).replace(/\/+$/, ''),
+        username: (r.username as string).trim(),
+        password: r.password as string,
+      },
+    }
+  }
+
   app.get('/api/routers', async (c) => {
     const routers = await routerService.listRouters()
     return c.json(routers)
   })
 
   app.post('/api/routers', async (c) => {
-    const router = await c.req.json()
-    if (!router?.base_url || !router?.username || !router?.password) {
-      return c.json(
-        { error: 'Missing required fields: base_url, username, password' },
-        400
-      )
+    const body = await c.req.json()
+    const result = validateRouter(body)
+    if (!result.valid) {
+      return c.json({ error: result.error }, 400)
     }
-    // normalize base_url (remove trailing slash)
-    router.base_url = router.base_url.replace(/\/+$|\/$/, '')
-    await routerService.addRouter(router)
+    await routerService.addRouter(result.data)
     return c.json({ message: 'Router saved' })
   })
 
