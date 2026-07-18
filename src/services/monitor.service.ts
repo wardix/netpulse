@@ -25,9 +25,7 @@ export class MonitorService {
         `[Sync] Received ${activeSessions.length} active sessions from ${router.id}.`
       )
 
-      // Mark all as offline for this router first, then update online ones
-      await this.sessionRepo.setAllOfflineForRouter(router.id)
-
+      // 1. Upsert all currently active sessions to 'online'
       for (const s of activeSessions) {
         await this.sessionRepo.updateStatus(
           router.id,
@@ -37,6 +35,11 @@ export class MonitorService {
           s.uptime
         )
       }
+
+      // 2. Mark as offline only those who were online but are no longer active
+      const activeUsernames = activeSessions.map((s) => s.name)
+      await this.sessionRepo.setOfflineIfNotIn(router.id, activeUsernames)
+
       console.log(`[Sync] Database updated for router: ${router.id}.`)
     }
     console.log('[Sync] All routers synchronized successfully.')
