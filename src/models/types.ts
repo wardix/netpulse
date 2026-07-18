@@ -5,6 +5,9 @@ export interface Router {
   password: string
 }
 
+// Safe version without sensitive fields
+export type RouterPublic = Omit<Router, 'password'>
+
 export interface Session {
   id?: number
   router_id: string

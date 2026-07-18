@@ -1,7 +1,7 @@
 import type { RouterRepository } from '../repositories/router.repository'
 import type { SessionRepository } from '../repositories/session.repository'
 import type { MikrotikClient } from '../infrastructure/mikrotik.client'
-import type { Router, Session } from '../models/types'
+import type { Router, RouterPublic, Session } from '../models/types'
 
 export class MonitorService {
   constructor(
@@ -83,8 +83,9 @@ export class RouterService {
     await this.routerRepo.save(router)
   }
 
-  async listRouters(): Promise<Router[]> {
-    return await this.routerRepo.findAll()
+  async listRouters(): Promise<RouterPublic[]> {
+    const routers = await this.routerRepo.findAll()
+    return routers.map(({ password: _pw, ...r }) => r)
   }
 
   async deleteRouter(id: string): Promise<void> {
