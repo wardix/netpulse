@@ -25,6 +25,20 @@ const routerService = new RouterService(routerRepo)
 // Setup Routes
 setupRoutes(app, monitorService, routerService)
 
+// Global error handler — catches any unhandled throw in route handlers
+app.onError((err, c) => {
+  console.error('[Error]', err.message, err.stack)
+  return c.json({ error: err.message || 'Internal Server Error' }, 500)
+})
+
+// 404 handler — catches requests to undefined routes
+app.notFound((c) => {
+  return c.json(
+    { error: `Route not found: ${c.req.method} ${c.req.path}` },
+    404
+  )
+})
+
 const port = parseInt(process.env.PORT || '3000', 10)
 
 Bun.serve({
