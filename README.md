@@ -14,7 +14,21 @@
 Buat file `.env` di root direktori atau salin dari `.env.example`:
 ```env
 PORT=3000
+API_KEY=your-secret-api-key
 DB_PATH=data/monitor.db
+```
+
+### Autentikasi API Key
+
+Semua endpoint `/api/*` memerlukan header `X-API-Key`. Set variabel `API_KEY` di file `.env` untuk mengaktifkan autentikasi.
+
+**Tanpa API_KEY (Mode Development):**
+Autentikasi dinonaktifkan — semua request diterima tanpa verifikasi.
+
+**Dengan API_KEY (Mode Produksi):**
+Semua request harus menyertakan header:
+```bash
+curl -H "X-API-Key: your-secret-api-key" http://localhost:3000/api/online
 ```
 
 ## 🚀 Instalasi & Menjalankan
