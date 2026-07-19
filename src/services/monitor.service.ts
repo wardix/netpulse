@@ -13,7 +13,7 @@ export class MonitorService {
 
   async syncAllRouters(): Promise<void> {
     const routers = await this.routerRepo.findAll()
-    logger.info('Sync started', { routerCount: routers.length })
+    logger.info('Sync started', { routerCount: routers.length, routerIds: routers.map((r) => r.id) })
 
     const results = await Promise.allSettled(
       routers.map(async (router) => {
@@ -30,6 +30,12 @@ export class MonitorService {
 
         // 1. Upsert all currently active sessions to 'online'
         for (const s of activeSessions) {
+          logger.debug('Upserting session to online', {
+            routerId: router.id,
+            username: s.name,
+            ip: s.address,
+            uptime: s.uptime,
+          })
           await this.sessionRepo.updateStatus(
             router.id,
             s.name,
@@ -41,6 +47,11 @@ export class MonitorService {
 
         // 2. Mark as offline only those who were online but are no longer active
         const activeUsernames = activeSessions.map((s) => s.name)
+        logger.debug('Setting inactive sessions to offline', {
+          routerId: router.id,
+          activeUsernameCount: activeUsernames.length,
+          activeUsernames,
+        })
         await this.sessionRepo.setOfflineIfNotIn(router.id, activeUsernames)
 
         logger.info(`Database updated for router`, { routerId: router.id })
