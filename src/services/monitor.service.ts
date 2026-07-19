@@ -57,7 +57,16 @@ export class MonitorService {
             username,
           })
         }
-        await this.sessionRepo.setOfflineIfNotIn(router.id, activeUsernames)
+        const offlinedUsernames = await this.sessionRepo.setOfflineIfNotIn(
+          router.id,
+          activeUsernames
+        )
+        for (const username of offlinedUsernames) {
+          logger.debug('Session set to offline', {
+            routerId: router.id,
+            username,
+          })
+        }
 
         logger.info(`Database updated for router`, { routerId: router.id })
       })

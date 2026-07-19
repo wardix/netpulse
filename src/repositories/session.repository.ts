@@ -51,20 +51,31 @@ export class SessionRepository {
   async setOfflineIfNotIn(
     router_id: string,
     activeUsernames: string[]
-  ): Promise<void> {
+  ): Promise<string[]> {
     if (activeUsernames.length === 0) {
       // All users for this router are offline
+      const affected = await db
+        .query(
+          "SELECT username FROM sessions WHERE router_id = ? AND status = 'online'"
+        )
+        .all(router_id)
       await db.run(
         "UPDATE sessions SET status = 'offline', last_update = CURRENT_TIMESTAMP WHERE router_id = ? AND status = 'online'",
         [router_id]
       )
-      return
+      return affected.map((r) => r.username as string)
     }
     const placeholders = activeUsernames.map(() => '?').join(',')
+    const affected = await db
+      .query(
+        `SELECT username FROM sessions WHERE router_id = ? AND status = 'online' AND username NOT IN (${placeholders})`
+      )
+      .all(router_id, ...activeUsernames)
     await db.run(
       `UPDATE sessions SET status = 'offline', last_update = CURRENT_TIMESTAMP
        WHERE router_id = ? AND status = 'online' AND username NOT IN (${placeholders})`,
       [router_id, ...activeUsernames]
     )
+    return affected.map((r) => r.username as string)
   }
 }
