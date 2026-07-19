@@ -4,7 +4,11 @@ import type { Session } from '../models/types'
 export class SessionRepository {
   async findByIp(ip: string): Promise<Session | null> {
     return (await db
-      .query('SELECT * FROM sessions WHERE ip_address = ?')
+      .query(
+        `SELECT * FROM sessions WHERE ip_address = ?
+         ORDER BY CASE WHEN status = 'online' THEN 0 ELSE 1 END, last_update DESC
+         LIMIT 1`
+      )
       .get(ip)) as Session | null
   }
 
@@ -13,7 +17,10 @@ export class SessionRepository {
 
     const placeholders = ips.map(() => '?').join(',')
     return (await db
-      .query(`SELECT * FROM sessions WHERE ip_address IN (${placeholders})`)
+      .query(
+        `SELECT * FROM sessions WHERE ip_address IN (${placeholders})
+         ORDER BY CASE WHEN status = 'online' THEN 0 ELSE 1 END, last_update DESC`
+      )
       .all(...ips)) as Session[]
   }
 
