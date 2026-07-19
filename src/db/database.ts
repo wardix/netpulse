@@ -44,19 +44,26 @@ if (DATABASE_URL) {
   await client`CREATE INDEX IF NOT EXISTS idx_sessions_ip ON sessions(ip_address)`
   await client`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_user_router ON sessions(username, router_id)`
 
+  // bun:sql uses PostgreSQL-native $1, $2, ... placeholders.
+  // All repository SQL uses ? (SQLite style), so we convert before executing.
+  const convertPlaceholders = (sql: string): string => {
+    let i = 0
+    return sql.replace(/\?/g, () => `$${++i}`)
+  }
+
   db = {
     query: (sql: string) => ({
       all: async (...params: unknown[]) => {
-        const result = await client.unsafe(sql, params)
+        const result = await client.unsafe(convertPlaceholders(sql), params)
         return (result ?? []) as Row[]
       },
       get: async (...params: unknown[]) => {
-        const rows = await client.unsafe(sql, params)
+        const rows = await client.unsafe(convertPlaceholders(sql), params)
         return ((rows ?? [])[0] ?? null) as Row | null
       },
     }),
     run: async (sql: string, params: unknown[] = []) => {
-      await client.unsafe(sql, params)
+      await client.unsafe(convertPlaceholders(sql), params)
     },
   }
 } else {
