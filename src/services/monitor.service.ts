@@ -50,8 +50,13 @@ export class MonitorService {
         logger.debug('Setting inactive sessions to offline', {
           routerId: router.id,
           activeUsernameCount: activeUsernames.length,
-          activeUsernames,
         })
+        for (const username of activeUsernames) {
+          logger.debug('Session still active, will not be set offline', {
+            routerId: router.id,
+            username,
+          })
+        }
         await this.sessionRepo.setOfflineIfNotIn(router.id, activeUsernames)
 
         logger.info(`Database updated for router`, { routerId: router.id })
