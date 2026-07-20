@@ -40,8 +40,7 @@ export class SessionRepository {
     await db.run(
       `INSERT INTO sessions (router_id, username, ip_address, status, uptime, last_update) 
        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-       ON CONFLICT(username, router_id) DO UPDATE SET 
-         ip_address = excluded.ip_address,
+       ON CONFLICT(username, router_id, ip_address) DO UPDATE SET 
          status = excluded.status,
          uptime = excluded.uptime,
          last_update = CURRENT_TIMESTAMP`,
@@ -69,10 +68,10 @@ export class SessionRepository {
 
   async setOfflineIfNotIn(
     router_id: string,
-    activeUsernames: string[]
+    activeSessions: { name: string; address: string }[]
   ): Promise<string[]> {
-    if (activeUsernames.length === 0) {
-      // All users for this router are offline
+    if (activeSessions.length === 0) {
+      // All sessions for this router are offline
       const affected = await db
         .query(
           "SELECT username FROM sessions WHERE router_id = ? AND status = 'online'"
@@ -84,17 +83,28 @@ export class SessionRepository {
       )
       return affected.map((r) => r.username as string)
     }
-    const placeholders = activeUsernames.map(() => '?').join(',')
+
+    // Use tuple (username, ip_address) NOT IN (...) to correctly handle
+    // multiple sessions per user — only offline sessions whose specific
+    // (username, ip) pair is no longer active
+    const placeholders = activeSessions.map(() => '(?, ?)').join(',')
+    const pairParams = activeSessions.flatMap((s) => [s.name, s.address])
+
     const affected = await db
       .query(
-        `SELECT username FROM sessions WHERE router_id = ? AND status = 'online' AND username NOT IN (${placeholders})`
+        `SELECT username, ip_address FROM sessions
+         WHERE router_id = ? AND status = 'online'
+           AND (username, ip_address) NOT IN (${placeholders})`
       )
-      .all(router_id, ...activeUsernames)
+      .all(router_id, ...pairParams)
+
     await db.run(
       `UPDATE sessions SET status = 'offline', last_update = CURRENT_TIMESTAMP
-       WHERE router_id = ? AND status = 'online' AND username NOT IN (${placeholders})`,
-      [router_id, ...activeUsernames]
+       WHERE router_id = ? AND status = 'online'
+         AND (username, ip_address) NOT IN (${placeholders})`,
+      [router_id, ...pairParams]
     )
-    return affected.map((r) => r.username as string)
+
+    return affected.map((r) => `${r.username} (${r.ip_address})`)
   }
 }

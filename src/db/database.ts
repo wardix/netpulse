@@ -42,7 +42,9 @@ if (DATABASE_URL) {
   `
 
   await client`CREATE INDEX IF NOT EXISTS idx_sessions_ip ON sessions(ip_address)`
-  await client`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_user_router ON sessions(username, router_id)`
+  // Migrate: drop old (username, router_id) index if it exists, replace with (username, router_id, ip_address)
+  await client`DROP INDEX IF EXISTS idx_sessions_user_router`
+  await client`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_user_router_ip ON sessions(username, router_id, ip_address)`
 
   // bun:sql uses PostgreSQL-native $1, $2, ... placeholders.
   // All repository SQL uses ? (SQLite style), so we convert before executing.
@@ -102,8 +104,10 @@ if (DATABASE_URL) {
   sqliteDb.run(
     `CREATE INDEX IF NOT EXISTS idx_sessions_ip ON sessions(ip_address)`
   )
+  // Migrate: drop old (username, router_id) index if it exists, replace with (username, router_id, ip_address)
+  sqliteDb.run(`DROP INDEX IF EXISTS idx_sessions_user_router`)
   sqliteDb.run(
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_user_router ON sessions(username, router_id)`
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_user_router_ip ON sessions(username, router_id, ip_address)`
   )
 
   db = {

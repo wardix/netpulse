@@ -45,26 +45,46 @@ export class MonitorService {
           )
         }
 
-        // 2. Mark as offline only those who were online but are no longer active
-        const activeUsernames = activeSessions.map((s) => s.name)
-        logger.debug('Setting inactive sessions to offline', {
-          routerId: router.id,
-          activeUsernameCount: activeUsernames.length,
+        // 2. Deduplicate on (username, ip_address) pairs — MikroTik may return
+        // the same pair twice. True duplicates are unexpected; log a warning.
+        const seen = new Set<string>()
+        const duplicates: typeof activeSessions = []
+        const uniqueSessions = activeSessions.filter((s) => {
+          const key = `${s.name}||${s.address}`
+          if (seen.has(key)) {
+            duplicates.push(s)
+            return false
+          }
+          seen.add(key)
+          return true
         })
-        for (const username of activeUsernames) {
-          logger.debug('Session still active, will not be set offline', {
+        if (duplicates.length > 0) {
+          logger.warn('MikroTik returned duplicate (username, ip) pairs', {
             routerId: router.id,
-            username,
+            duplicates: duplicates.map((s) => ({ username: s.name, ip: s.address })),
           })
         }
-        const offlinedUsernames = await this.sessionRepo.setOfflineIfNotIn(
+
+        // 3. Mark as offline only sessions whose (username, ip) pair is no longer active
+        logger.debug('Setting inactive sessions to offline', {
+          routerId: router.id,
+          activeSessionCount: uniqueSessions.length,
+        })
+        for (const s of uniqueSessions) {
+          logger.debug('Session still active, will not be set offline', {
+            routerId: router.id,
+            username: s.name,
+            ip: s.address,
+          })
+        }
+        const offlinedSessions = await this.sessionRepo.setOfflineIfNotIn(
           router.id,
-          activeUsernames
+          uniqueSessions.map((s) => ({ name: s.name, address: s.address }))
         )
-        for (const username of offlinedUsernames) {
+        for (const session of offlinedSessions) {
           logger.debug('Session set to offline', {
             routerId: router.id,
-            username,
+            session,
           })
         }
 
