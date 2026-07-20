@@ -24,6 +24,22 @@ export class SessionRepository {
       .all(...ips)) as Session[]
   }
 
+  async findDuplicateOnlineSessions(): Promise<Session[]> {
+    return (await db
+      .query(
+        `SELECT * FROM sessions 
+         WHERE status = 'online' 
+           AND ip_address IN (
+             SELECT ip_address 
+             FROM sessions 
+             WHERE status = 'online' AND ip_address IS NOT NULL 
+             GROUP BY ip_address 
+             HAVING count(*) > 1
+           )`
+      )
+      .all()) as Session[]
+  }
+
   async findAllOnline(): Promise<Session[]> {
     return (await db
       .query("SELECT * FROM sessions WHERE status = 'online'")

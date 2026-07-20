@@ -7,6 +7,13 @@ export const setupRoutes = (
   monitorService: MonitorService,
   routerService: RouterService
 ) => {
+  // --- METRICS ---
+  // Prometheus metrics endpoint (unprotected)
+  app.get('/metrics', async (c) => {
+    const metrics = await monitorService.getDuplicateIpsMetrics()
+    return c.text(metrics)
+  })
+
   // Apply API key authentication to all /api/* routes
   app.use('/api/*', apiKeyAuth)
   // --- SESSION ROUTES ---

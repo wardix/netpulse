@@ -140,6 +140,20 @@ export class MonitorService {
   async getAllOnline(): Promise<Session[]> {
     return await this.sessionRepo.findAllOnline()
   }
+
+  async getDuplicateIpsMetrics(): Promise<string> {
+    const duplicates = await this.sessionRepo.findDuplicateOnlineSessions()
+    
+    // Always provide HELP and TYPE headers
+    let metrics = '# HELP netpulse_duplicate_ip Indicates a duplicate IP session\n'
+    metrics += '# TYPE netpulse_duplicate_ip gauge\n'
+    
+    for (const session of duplicates) {
+      metrics += `netpulse_duplicate_ip{ip="${session.ip_address}",router="${session.router_id}",username="${session.username}"} 1\n`
+    }
+    
+    return metrics
+  }
 }
 
 export class RouterService {
