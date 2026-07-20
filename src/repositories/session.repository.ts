@@ -47,6 +47,18 @@ export class SessionRepository {
          last_update = CURRENT_TIMESTAMP`,
       [router_id, username, ip, status, uptime || null]
     )
+
+    // When a session goes online, delete stale offline rows with the same IP
+    // from other router/username combinations to prevent duplicate IP conflicts
+    if (status === 'online' && ip) {
+      await db.run(
+        `DELETE FROM sessions
+         WHERE ip_address = ?
+           AND status = 'offline'
+           AND NOT (username = ? AND router_id = ?)`,
+        [ip, username, router_id]
+      )
+    }
   }
 
   async setAllOfflineForRouter(router_id: string): Promise<void> {
