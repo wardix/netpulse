@@ -47,3 +47,11 @@ Bun.serve({
 })
 
 console.log(`NetPulse Server running on port ${port}`)
+
+// Periodic Background Jobs
+const TEN_MINUTES_MS = 10 * 60 * 1000
+setInterval(() => {
+  monitorService.checkRogueSessions().catch(err => {
+    console.error('[PeriodicCheck] Error running checkRogueSessions:', err)
+  })
+}, TEN_MINUTES_MS)

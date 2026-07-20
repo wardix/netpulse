@@ -40,6 +40,19 @@ export class SessionRepository {
       .all()) as Session[]
   }
 
+  async findRogueOnlineSessions(): Promise<Session[]> {
+    return (await db
+      .query("SELECT * FROM sessions WHERE status = 'online' AND is_rogue = TRUE")
+      .all()) as Session[]
+  }
+
+  async findOnlineIpsForRouter(router_id: string): Promise<string[]> {
+    const rows = await db
+      .query("SELECT ip_address FROM sessions WHERE router_id = ? AND status = 'online' AND ip_address IS NOT NULL")
+      .all(router_id)
+    return rows.map((r: any) => r.ip_address as string)
+  }
+
   async findAllOnline(): Promise<Session[]> {
     return (await db
       .query("SELECT * FROM sessions WHERE status = 'online'")
@@ -51,17 +64,31 @@ export class SessionRepository {
     username: string,
     ip: string,
     status: 'online' | 'offline',
-    uptime?: string
+    uptime?: string,
+    is_rogue?: boolean
   ): Promise<void> {
-    await db.run(
-      `INSERT INTO sessions (router_id, username, ip_address, status, uptime, last_update) 
-       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-       ON CONFLICT(username, router_id, ip_address) DO UPDATE SET 
-         status = excluded.status,
-         uptime = excluded.uptime,
-         last_update = CURRENT_TIMESTAMP`,
-      [router_id, username, ip, status, uptime || null]
-    )
+    if (is_rogue !== undefined) {
+      await db.run(
+        `INSERT INTO sessions (router_id, username, ip_address, status, uptime, is_rogue, last_update) 
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(username, router_id, ip_address) DO UPDATE SET 
+           status = excluded.status,
+           uptime = excluded.uptime,
+           is_rogue = excluded.is_rogue,
+           last_update = CURRENT_TIMESTAMP`,
+        [router_id, username, ip, status, uptime || null, is_rogue]
+      )
+    } else {
+      await db.run(
+        `INSERT INTO sessions (router_id, username, ip_address, status, uptime, last_update) 
+         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(username, router_id, ip_address) DO UPDATE SET 
+           status = excluded.status,
+           uptime = excluded.uptime,
+           last_update = CURRENT_TIMESTAMP`,
+        [router_id, username, ip, status, uptime || null]
+      )
+    }
 
     // When a session goes online, delete stale offline rows with the same IP
     // from other router/username combinations to prevent duplicate IP conflicts

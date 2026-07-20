@@ -1,6 +1,7 @@
 import type { RouterRepository } from '../repositories/router.repository'
 import type { SessionRepository } from '../repositories/session.repository'
 import type { MikrotikClient } from '../infrastructure/mikrotik.client'
+import { nisClient } from '../infrastructure/nis.client'
 import type { Router, RouterPublic, Session } from '../models/types'
 import { logger } from '../utils/logger'
 
@@ -28,20 +29,43 @@ export class MonitorService {
           sessionCount: activeSessions.length,
         })
 
+        // Verify newly online IPs against NIS Gateway
+        const currentOnlineIps = new Set(await this.sessionRepo.findOnlineIpsForRouter(router.id))
+        const newlyOnlineIps = activeSessions
+          .filter(s => !currentOnlineIps.has(s.address))
+          .map(s => s.address)
+        
+        let validNewlyOnlineIps = new Set<string>()
+        if (newlyOnlineIps.length > 0) {
+          try {
+            logger.debug(`Verifying ${newlyOnlineIps.length} newly online IPs with NIS Gateway...`)
+            validNewlyOnlineIps = await nisClient.verifyIps(newlyOnlineIps)
+          } catch (err) {
+            logger.warn('Failed to verify newly online IPs with NIS Gateway, skipping is_rogue check', { routerId: router.id })
+          }
+        }
+
         // 1. Upsert all currently active sessions to 'online'
         for (const s of activeSessions) {
+          let is_rogue: boolean | undefined = undefined
+          if (newlyOnlineIps.includes(s.address)) {
+             is_rogue = !validNewlyOnlineIps.has(s.address)
+          }
+
           logger.debug('Upserting session to online', {
             routerId: router.id,
             username: s.name,
             ip: s.address,
             uptime: s.uptime,
+            is_rogue
           })
           await this.sessionRepo.updateStatus(
             router.id,
             s.name,
             s.address,
             'online',
-            s.uptime
+            s.uptime,
+            is_rogue
           )
         }
 
@@ -117,7 +141,18 @@ export class MonitorService {
       ip,
       status,
     })
-    await this.sessionRepo.updateStatus(routerId, username, ip, status)
+
+    let is_rogue: boolean | undefined = undefined
+    if (status === 'online' && ip) {
+      try {
+        const validIps = await nisClient.verifyIps([ip])
+        is_rogue = !validIps.has(ip)
+      } catch (err) {
+        logger.warn('Failed to verify IP during webhook, skipping is_rogue update', { ip })
+      }
+    }
+
+    await this.sessionRepo.updateStatus(routerId, username, ip, status, undefined, is_rogue)
   }
 
   async getStatusByIp(
@@ -151,8 +186,36 @@ export class MonitorService {
     for (const session of duplicates) {
       metrics += `netpulse_duplicate_ip{ip="${session.ip_address}",router="${session.router_id}",username="${session.username}"} 1\n`
     }
+
+    const rogues = await this.sessionRepo.findRogueOnlineSessions()
+    metrics += '\n# HELP netpulse_rogue_session Session active on router but unregistered in NIS billing\n'
+    metrics += '# TYPE netpulse_rogue_session gauge\n'
+    for (const session of rogues) {
+      metrics += `netpulse_rogue_session{ip="${session.ip_address}",router="${session.router_id}",username="${session.username}"} 1\n`
+    }
     
     return metrics
+  }
+
+  async checkRogueSessions(): Promise<void> {
+    try {
+      const rogues = await this.sessionRepo.findRogueOnlineSessions()
+      if (rogues.length === 0) return
+
+      const ips = rogues.map(r => r.ip_address)
+      logger.info(`Starting periodic check for ${ips.length} rogue sessions`)
+
+      const validIps = await nisClient.verifyIps(ips)
+      
+      for (const session of rogues) {
+        if (validIps.has(session.ip_address)) {
+          logger.info(`Self-healing: Session for IP ${session.ip_address} is now registered in NIS`)
+          await this.sessionRepo.updateStatus(session.router_id, session.username, session.ip_address, 'online', session.uptime, false)
+        }
+      }
+    } catch (err) {
+      logger.error('Failed to run periodic rogue session check', { error: err })
+    }
   }
 }
 

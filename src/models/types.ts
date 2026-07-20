@@ -16,6 +16,7 @@ export interface Session {
   status: 'online' | 'offline'
   last_update?: string
   uptime?: string
+  is_rogue?: boolean
 }
 
 export interface MikrotikActiveSession {

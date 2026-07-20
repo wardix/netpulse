@@ -37,6 +37,7 @@ if (DATABASE_URL) {
       status TEXT CHECK (status IN ('online', 'offline')) NOT NULL,
       last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       uptime TEXT,
+      is_rogue BOOLEAN DEFAULT FALSE,
       FOREIGN KEY (router_id) REFERENCES routers(id)
     )
   `
@@ -45,6 +46,8 @@ if (DATABASE_URL) {
   // Migrate: drop old (username, router_id) index if it exists, replace with (username, router_id, ip_address)
   await client`DROP INDEX IF EXISTS idx_sessions_user_router`
   await client`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_user_router_ip ON sessions(username, router_id, ip_address)`
+  // Migrate: add is_rogue column
+  await client`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS is_rogue BOOLEAN DEFAULT FALSE`
 
   // bun:sql uses PostgreSQL-native $1, $2, ... placeholders.
   // All repository SQL uses ? (SQLite style), so we convert before executing.
@@ -97,6 +100,7 @@ if (DATABASE_URL) {
       status TEXT CHECK(status IN ('online', 'offline')) NOT NULL,
       last_update DATETIME DEFAULT CURRENT_TIMESTAMP,
       uptime TEXT,
+      is_rogue BOOLEAN DEFAULT 0,
       FOREIGN KEY (router_id) REFERENCES routers(id)
     )
   `)
@@ -109,6 +113,12 @@ if (DATABASE_URL) {
   sqliteDb.run(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_user_router_ip ON sessions(username, router_id, ip_address)`
   )
+  // Migrate: add is_rogue column
+  try {
+    sqliteDb.run(`ALTER TABLE sessions ADD COLUMN is_rogue BOOLEAN DEFAULT 0`)
+  } catch (e) {
+    // Ignore if column already exists
+  }
 
   db = {
     query: (sql: string) => {
