@@ -41,6 +41,12 @@ export const setupRoutes = (
     return c.json(result)
   })
 
+  // List all offline
+  app.get('/api/offline', async (c) => {
+    const result = await monitorService.getAllOffline()
+    return c.json(result)
+  })
+
   // Force Sync (All Routers)
   app.post('/api/sync', async (c) => {
     // Run sync in the background

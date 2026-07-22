@@ -186,6 +186,10 @@ export class MonitorService {
     return await this.sessionRepo.findAllOnline()
   }
 
+  async getAllOffline(): Promise<Session[]> {
+    return await this.sessionRepo.findAllOffline()
+  }
+
   async getDuplicateIpsMetrics(): Promise<string> {
     const duplicates = await this.sessionRepo.findDuplicateOnlineSessions()
     

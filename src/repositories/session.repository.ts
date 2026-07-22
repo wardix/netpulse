@@ -59,6 +59,12 @@ export class SessionRepository {
       .all()) as Session[]
   }
 
+  async findAllOffline(): Promise<Session[]> {
+    return (await db
+      .query("SELECT * FROM sessions WHERE status = 'offline' ORDER BY last_update DESC")
+      .all()) as Session[]
+  }
+
   async updateStatus(
     router_id: string,
     username: string,
