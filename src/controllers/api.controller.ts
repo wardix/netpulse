@@ -41,13 +41,23 @@ export const setupRoutes = (
     return c.json(result)
   })
 
-  // Force Sync
+  // Force Sync (All Routers)
   app.post('/api/sync', async (c) => {
     // Run sync in the background
     monitorService.syncAllRouters().catch((err) => {
       console.error('[Sync] Background sync error:', err)
     })
     return c.json({ message: 'Sync started in the background' }, 202)
+  })
+
+  // Force Sync (Single Router)
+  app.post('/api/sync/:router_id', async (c) => {
+    const routerId = c.req.param('router_id')
+    // Run sync in the background
+    monitorService.syncRouterById(routerId).catch((err) => {
+      console.error(`[Sync] Background sync error for router ${routerId}:`, err)
+    })
+    return c.json({ message: `Sync started for router ${routerId} in the background` }, 202)
   })
 
   // --- WEBHOOK ROUTES ---

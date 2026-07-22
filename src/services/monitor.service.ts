@@ -12,108 +12,118 @@ export class MonitorService {
     private mikrotikClient: MikrotikClient
   ) {}
 
+  async syncRouterById(routerId: string): Promise<void> {
+    const routers = await this.routerRepo.findAll()
+    const router = routers.find((r) => r.id === routerId)
+    if (!router) {
+      throw new Error(`Router with id ${routerId} not found`)
+    }
+    await this.syncRouter(router)
+  }
+
+  async syncRouter(router: Router): Promise<void> {
+    logger.debug(`Fetching from router ${router.id}`, {
+      routerId: router.id,
+      baseUrl: router.base_url,
+    })
+    const activeSessions = await this.mikrotikClient.getActiveSessions(router)
+    logger.info(`Received sessions from router`, {
+      routerId: router.id,
+      sessionCount: activeSessions.length,
+    })
+
+    // Verify newly online IPs against NIS Gateway
+    const currentOnlineIps = new Set(await this.sessionRepo.findOnlineIpsForRouter(router.id))
+    const newlyOnlineIps = activeSessions
+      .filter(s => !currentOnlineIps.has(s.address))
+      .map(s => s.address)
+    
+    let validNewlyOnlineIps = new Set<string>()
+    if (newlyOnlineIps.length > 0) {
+      try {
+        logger.debug(`Verifying ${newlyOnlineIps.length} newly online IPs with NIS Gateway...`)
+        validNewlyOnlineIps = await nisClient.verifyIps(newlyOnlineIps)
+      } catch (err) {
+        logger.warn('Failed to verify newly online IPs with NIS Gateway, skipping is_rogue check', { routerId: router.id })
+      }
+    }
+
+    // 1. Upsert all currently active sessions to 'online'
+    for (const s of activeSessions) {
+      let is_rogue: boolean | undefined = undefined
+      if (newlyOnlineIps.includes(s.address)) {
+         is_rogue = !validNewlyOnlineIps.has(s.address)
+      }
+
+      logger.debug('Upserting session to online', {
+        routerId: router.id,
+        username: s.name,
+        ip: s.address,
+        uptime: s.uptime,
+        is_rogue
+      })
+      await this.sessionRepo.updateStatus(
+        router.id,
+        s.name,
+        s.address,
+        'online',
+        s.uptime,
+        is_rogue
+      )
+    }
+
+    // 2. Deduplicate on (username, ip_address) pairs — MikroTik may return
+    // the same pair twice. True duplicates are unexpected; log a warning.
+    const seen = new Set<string>()
+    const duplicates: typeof activeSessions = []
+    const uniqueSessions = activeSessions.filter((s) => {
+      const key = `${s.name}||${s.address}`
+      if (seen.has(key)) {
+        duplicates.push(s)
+        return false
+      }
+      seen.add(key)
+      return true
+    })
+    if (duplicates.length > 0) {
+      logger.warn('MikroTik returned duplicate (username, ip) pairs', {
+        routerId: router.id,
+        duplicates: duplicates.map((s) => ({ username: s.name, ip: s.address })),
+      })
+    }
+
+    // 3. Mark as offline only sessions whose (username, ip) pair is no longer active
+    logger.debug('Setting inactive sessions to offline', {
+      routerId: router.id,
+      activeSessionCount: uniqueSessions.length,
+    })
+    for (const s of uniqueSessions) {
+      logger.debug('Session still active, will not be set offline', {
+        routerId: router.id,
+        username: s.name,
+        ip: s.address,
+      })
+    }
+    const offlinedSessions = await this.sessionRepo.setOfflineIfNotIn(
+      router.id,
+      uniqueSessions.map((s) => ({ name: s.name, address: s.address }))
+    )
+    for (const session of offlinedSessions) {
+      logger.debug('Session set to offline', {
+        routerId: router.id,
+        session,
+      })
+    }
+
+    logger.info(`Database updated for router`, { routerId: router.id })
+  }
+
   async syncAllRouters(): Promise<void> {
     const routers = await this.routerRepo.findAll()
     logger.info('Sync started', { routerCount: routers.length, routerIds: routers.map((r) => r.id) })
 
     const results = await Promise.allSettled(
-      routers.map(async (router) => {
-        logger.debug(`Fetching from router ${router.id}`, {
-          routerId: router.id,
-          baseUrl: router.base_url,
-        })
-        const activeSessions =
-          await this.mikrotikClient.getActiveSessions(router)
-        logger.info(`Received sessions from router`, {
-          routerId: router.id,
-          sessionCount: activeSessions.length,
-        })
-
-        // Verify newly online IPs against NIS Gateway
-        const currentOnlineIps = new Set(await this.sessionRepo.findOnlineIpsForRouter(router.id))
-        const newlyOnlineIps = activeSessions
-          .filter(s => !currentOnlineIps.has(s.address))
-          .map(s => s.address)
-        
-        let validNewlyOnlineIps = new Set<string>()
-        if (newlyOnlineIps.length > 0) {
-          try {
-            logger.debug(`Verifying ${newlyOnlineIps.length} newly online IPs with NIS Gateway...`)
-            validNewlyOnlineIps = await nisClient.verifyIps(newlyOnlineIps)
-          } catch (err) {
-            logger.warn('Failed to verify newly online IPs with NIS Gateway, skipping is_rogue check', { routerId: router.id })
-          }
-        }
-
-        // 1. Upsert all currently active sessions to 'online'
-        for (const s of activeSessions) {
-          let is_rogue: boolean | undefined = undefined
-          if (newlyOnlineIps.includes(s.address)) {
-             is_rogue = !validNewlyOnlineIps.has(s.address)
-          }
-
-          logger.debug('Upserting session to online', {
-            routerId: router.id,
-            username: s.name,
-            ip: s.address,
-            uptime: s.uptime,
-            is_rogue
-          })
-          await this.sessionRepo.updateStatus(
-            router.id,
-            s.name,
-            s.address,
-            'online',
-            s.uptime,
-            is_rogue
-          )
-        }
-
-        // 2. Deduplicate on (username, ip_address) pairs — MikroTik may return
-        // the same pair twice. True duplicates are unexpected; log a warning.
-        const seen = new Set<string>()
-        const duplicates: typeof activeSessions = []
-        const uniqueSessions = activeSessions.filter((s) => {
-          const key = `${s.name}||${s.address}`
-          if (seen.has(key)) {
-            duplicates.push(s)
-            return false
-          }
-          seen.add(key)
-          return true
-        })
-        if (duplicates.length > 0) {
-          logger.warn('MikroTik returned duplicate (username, ip) pairs', {
-            routerId: router.id,
-            duplicates: duplicates.map((s) => ({ username: s.name, ip: s.address })),
-          })
-        }
-
-        // 3. Mark as offline only sessions whose (username, ip) pair is no longer active
-        logger.debug('Setting inactive sessions to offline', {
-          routerId: router.id,
-          activeSessionCount: uniqueSessions.length,
-        })
-        for (const s of uniqueSessions) {
-          logger.debug('Session still active, will not be set offline', {
-            routerId: router.id,
-            username: s.name,
-            ip: s.address,
-          })
-        }
-        const offlinedSessions = await this.sessionRepo.setOfflineIfNotIn(
-          router.id,
-          uniqueSessions.map((s) => ({ name: s.name, address: s.address }))
-        )
-        for (const session of offlinedSessions) {
-          logger.debug('Session set to offline', {
-            routerId: router.id,
-            session,
-          })
-        }
-
-        logger.info(`Database updated for router`, { routerId: router.id })
-      })
+      routers.map((router) => this.syncRouter(router))
     )
 
     const failed = results.filter(
