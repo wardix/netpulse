@@ -1,31 +1,50 @@
 import db from '../db/database'
 import type { Session } from '../models/types'
 
+function mapSession(s: any): Session {
+  if (!s) return s
+  let lastUpdate = s.last_update
+  if (typeof lastUpdate === 'string') {
+    // If it's a raw SQLite format without timezone (YYYY-MM-DD HH:MM:SS), format it to ISO with Z
+    if (!lastUpdate.includes('T')) {
+      lastUpdate = lastUpdate.replace(' ', 'T')
+    }
+    if (!lastUpdate.endsWith('Z') && !lastUpdate.includes('+') && !lastUpdate.includes('-')) {
+      lastUpdate += 'Z'
+    }
+  } else if (lastUpdate instanceof Date) {
+    lastUpdate = lastUpdate.toISOString()
+  }
+  return { ...s, last_update: lastUpdate }
+}
+
 export class SessionRepository {
   async findByIp(ip: string): Promise<Session | null> {
-    return (await db
+    const row = await db
       .query(
         `SELECT * FROM sessions WHERE ip_address = ?
          ORDER BY CASE WHEN status = 'online' THEN 0 ELSE 1 END, last_update DESC
          LIMIT 1`
       )
-      .get(ip)) as Session | null
+      .get(ip)
+    return row ? mapSession(row) : null
   }
 
   async findByIps(ips: string[]): Promise<Session[]> {
     if (ips.length === 0) return []
 
     const placeholders = ips.map(() => '?').join(',')
-    return (await db
+    const rows = await db
       .query(
         `SELECT * FROM sessions WHERE ip_address IN (${placeholders})
          ORDER BY CASE WHEN status = 'online' THEN 0 ELSE 1 END, last_update DESC`
       )
-      .all(...ips)) as Session[]
+      .all(...ips)
+    return (rows as any[]).map(mapSession)
   }
 
   async findDuplicateOnlineSessions(): Promise<Session[]> {
-    return (await db
+    const rows = await db
       .query(
         `SELECT * FROM sessions 
          WHERE status = 'online' 
@@ -37,13 +56,15 @@ export class SessionRepository {
              HAVING count(*) > 1
            )`
       )
-      .all()) as Session[]
+      .all()
+    return (rows as any[]).map(mapSession)
   }
 
   async findRogueOnlineSessions(): Promise<Session[]> {
-    return (await db
+    const rows = await db
       .query("SELECT * FROM sessions WHERE status = 'online' AND is_rogue = TRUE")
-      .all()) as Session[]
+      .all()
+    return (rows as any[]).map(mapSession)
   }
 
   async findOnlineIpsForRouter(router_id: string): Promise<string[]> {
@@ -54,15 +75,17 @@ export class SessionRepository {
   }
 
   async findAllOnline(): Promise<Session[]> {
-    return (await db
+    const rows = await db
       .query("SELECT * FROM sessions WHERE status = 'online'")
-      .all()) as Session[]
+      .all()
+    return (rows as any[]).map(mapSession)
   }
 
   async findAllOffline(): Promise<Session[]> {
-    return (await db
+    const rows = await db
       .query("SELECT * FROM sessions WHERE status = 'offline' ORDER BY last_update DESC")
-      .all()) as Session[]
+      .all()
+    return (rows as any[]).map(mapSession)
   }
 
   async updateStatus(
