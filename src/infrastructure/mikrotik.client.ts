@@ -20,6 +20,8 @@ export class MikrotikClient {
           Authorization: `Basic ${auth}`,
         },
         signal: AbortSignal.timeout(timeoutMs),
+        // Bun-specific extension to ignore self-signed certs
+        tls: { rejectUnauthorized: false },
       })
 
       logger.debug('MikroTik response received', {
