@@ -13,7 +13,13 @@ function mapSession(s: any): Session {
       lastUpdate += 'Z'
     }
   } else if (lastUpdate instanceof Date) {
-    lastUpdate = lastUpdate.toISOString()
+    // Driver SQL Bun mengasumsikan kolom 'timestamp without time zone' adalah waktu lokal server (misal WIB/+07:00).
+    // Padahal data asli di database sudah dalam bentuk UTC. 
+    // Hal ini menyebabkan Bun menggeser waktunya mundur saat diubah ke ISOString (menjadi 01:27).
+    // Kita harus membalikkan pergeseran tersebut (mengembalikan 7 jam yang hilang).
+    const tzOffsetMs = lastUpdate.getTimezoneOffset() * 60000
+    const correctedDate = new Date(lastUpdate.getTime() - tzOffsetMs)
+    lastUpdate = correctedDate.toISOString()
   }
   return { ...s, last_update: lastUpdate }
 }
