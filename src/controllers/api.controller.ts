@@ -63,7 +63,10 @@ export const setupRoutes = (
     monitorService.syncRouterById(routerId).catch((err) => {
       console.error(`[Sync] Background sync error for router ${routerId}:`, err)
     })
-    return c.json({ message: `Sync started for router ${routerId} in the background` }, 202)
+    return c.json(
+      { message: `Sync started for router ${routerId} in the background` },
+      202
+    )
   })
 
   // --- WEBHOOK ROUTES ---

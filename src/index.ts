@@ -49,10 +49,15 @@ Bun.serve({
 console.log(`NetPulse Server running on port ${port}`)
 
 // Periodic Background Jobs
-const checkIntervalMinutes = parseInt(process.env.ROGUE_CHECK_INTERVAL_MINUTES || '10', 10)
+const checkIntervalMinutes = parseInt(
+  process.env.ROGUE_CHECK_INTERVAL_MINUTES || '10',
+  10
+)
 const checkIntervalMs = checkIntervalMinutes * 60 * 1000
 
-console.log(`Scheduled self-healing rogue check every ${checkIntervalMinutes} minutes`)
+console.log(
+  `Scheduled self-healing rogue check every ${checkIntervalMinutes} minutes`
+)
 setInterval(() => {
   monitorService.checkRogueSessions().catch((err) => {
     console.error('[PeriodicCheck] Error running checkRogueSessions:', err)

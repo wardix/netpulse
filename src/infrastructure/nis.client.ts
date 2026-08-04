@@ -17,7 +17,9 @@ export class NisClient {
   async verifyIps(ips: string[]): Promise<Set<string>> {
     if (ips.length === 0) return new Set()
     if (!this.apiUrl || !this.apiToken) {
-      logger.warn('NIS_API_URL or NIS_API_TOKEN is not configured. Skipping NIS verification.')
+      logger.warn(
+        'NIS_API_URL or NIS_API_TOKEN is not configured. Skipping NIS verification.'
+      )
       return new Set(ips) // Assume all valid if not configured
     }
 
@@ -25,15 +27,17 @@ export class NisClient {
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${this.apiToken}`,
-          'Content-Type': 'application/json'
+          accept: 'application/json',
+          Authorization: `Bearer ${this.apiToken}`,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ips })
+        body: JSON.stringify({ ips }),
       })
 
       if (!response.ok) {
-        logger.error(`NIS Gateway returned error: ${response.status} ${response.statusText}`)
+        logger.error(
+          `NIS Gateway returned error: ${response.status} ${response.statusText}`
+        )
         throw new Error(`NIS Gateway error: ${response.status}`)
       }
 
@@ -47,7 +51,7 @@ export class NisClient {
           }
         }
       }
-      
+
       return validIps
     } catch (error) {
       logger.error('Failed to contact NIS Gateway', { error })

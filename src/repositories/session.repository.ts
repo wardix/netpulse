@@ -9,7 +9,11 @@ function mapSession(s: any): Session {
     if (!lastUpdate.includes('T')) {
       lastUpdate = lastUpdate.replace(' ', 'T')
     }
-    if (!lastUpdate.endsWith('Z') && !lastUpdate.includes('+') && !lastUpdate.includes('-')) {
+    if (
+      !lastUpdate.endsWith('Z') &&
+      !lastUpdate.includes('+') &&
+      !lastUpdate.includes('-')
+    ) {
       lastUpdate += 'Z'
     }
   } else if (lastUpdate instanceof Date) {
@@ -62,14 +66,18 @@ export class SessionRepository {
 
   async findRogueOnlineSessions(): Promise<Session[]> {
     const rows = await db
-      .query("SELECT * FROM sessions WHERE status = 'online' AND is_rogue = TRUE")
+      .query(
+        "SELECT * FROM sessions WHERE status = 'online' AND is_rogue = TRUE"
+      )
       .all()
     return (rows as any[]).map(mapSession)
   }
 
   async findOnlineIpsForRouter(router_id: string): Promise<string[]> {
     const rows = await db
-      .query("SELECT ip_address FROM sessions WHERE router_id = ? AND status = 'online' AND ip_address IS NOT NULL")
+      .query(
+        "SELECT ip_address FROM sessions WHERE router_id = ? AND status = 'online' AND ip_address IS NOT NULL"
+      )
       .all(router_id)
     return rows.map((r: any) => r.ip_address as string)
   }
@@ -83,7 +91,9 @@ export class SessionRepository {
 
   async findAllOffline(): Promise<Session[]> {
     const rows = await db
-      .query("SELECT * FROM sessions WHERE status = 'offline' ORDER BY last_update DESC")
+      .query(
+        "SELECT * FROM sessions WHERE status = 'offline' ORDER BY last_update DESC"
+      )
       .all()
     return (rows as any[]).map(mapSession)
   }

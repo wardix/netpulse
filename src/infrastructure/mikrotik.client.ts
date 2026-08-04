@@ -46,12 +46,15 @@ export class MikrotikClient {
       logger.debug('MikroTik response parsed', {
         routerId: router.id,
         sessionCount: data.length,
-        sessions: data.map((s) => ({ name: s.name, address: s.address, uptime: s.uptime })),
+        sessions: data.map((s) => ({
+          name: s.name,
+          address: s.address,
+          uptime: s.uptime,
+        })),
       })
       return data
     } catch (error) {
-      const isTimeout =
-        error instanceof Error && error.name === 'TimeoutError'
+      const isTimeout = error instanceof Error && error.name === 'TimeoutError'
       logger.error('Failed to fetch from MikroTik router', {
         routerId: router.id,
         url,
