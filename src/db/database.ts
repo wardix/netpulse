@@ -125,7 +125,7 @@ if (DATABASE_URL) {
     query: (sql: string) => {
       return {
         all: (...params: any[]) => {
-          return Promise.resolve(sqliteDb.query(sql).all(...params))
+          return Promise.resolve(sqliteDb.query(sql).all(...params) as Row[])
         },
         get: (...params: any[]) => {
           return Promise.resolve(

@@ -3,13 +3,15 @@ import type { Router } from '../models/types'
 
 export class RouterRepository {
   async findAll(): Promise<Router[]> {
-    return (await db.query('SELECT * FROM routers').all()) as Router[]
+    return (await db
+      .query('SELECT * FROM routers')
+      .all()) as unknown as Router[]
   }
 
   async findById(id: string): Promise<Router | null> {
     return (await db
       .query('SELECT * FROM routers WHERE id = ?')
-      .get(id)) as Router | null
+      .get(id)) as unknown as Router | null
   }
 
   async save(router: Router): Promise<void> {

@@ -2,6 +2,8 @@ import type { RouterRepository } from '../repositories/router.repository'
 import type { SessionRepository } from '../repositories/session.repository'
 import type { MikrotikClient } from '../infrastructure/mikrotik.client'
 import { nisClient } from '../infrastructure/nis.client'
+import { optraClient } from '../infrastructure/optra.client'
+import { fiberpulseClient } from '../infrastructure/fiberpulse.client'
 import type { Router, RouterPublic, Session } from '../models/types'
 import { logger } from '../utils/logger'
 
@@ -54,7 +56,7 @@ export class MonitorService {
           `Verifying ${newlyOnlineIps.length} newly online IPs with NIS Gateway...`
         )
         validNewlyOnlineIps = await nisClient.verifyIps(newlyOnlineIps)
-      } catch (err) {
+      } catch (_err) {
         logger.warn(
           'Failed to verify newly online IPs with NIS Gateway, skipping is_rogue check',
           { routerId: router.id }
@@ -177,7 +179,7 @@ export class MonitorService {
       try {
         const validIps = await nisClient.verifyIps([ip])
         is_rogue = !validIps.has(ip)
-      } catch (err) {
+      } catch (_err) {
         logger.warn(
           'Failed to verify IP during webhook, skipping is_rogue update',
           { ip }
@@ -193,6 +195,43 @@ export class MonitorService {
       undefined,
       is_rogue
     )
+
+    // Lookup FTTX subscriber details and dispatch to external services (Optra / Fiberpulse)
+    if (ip) {
+      try {
+        const subscriber = await nisClient.getFttxSubscriber(ip)
+        if (subscriber) {
+          logger.info(`FTTX subscriber found for IP ${ip}`, {
+            subscriber_id: subscriber.subscriber_id,
+            operator_id: subscriber.operator_id,
+            circuit_id: subscriber.circuit_id,
+            homepass_id: subscriber.homepass_id,
+            event: status,
+          })
+
+          if (subscriber.operator_id === 22) {
+            await optraClient.checkSubscriber({
+              subscriber_id: subscriber.subscriber_id,
+              circuit_id: subscriber.circuit_id,
+              homepass_id: subscriber.homepass_id,
+            })
+          } else if (subscriber.operator_id === 1) {
+            await fiberpulseClient.syncOlt(subscriber.circuit_id)
+          }
+        } else {
+          logger.debug(`No FTTX subscriber found for IP ${ip}`)
+        }
+      } catch (err) {
+        logger.error(
+          'Error during FTTX lookup / external dispatch on webhook',
+          {
+            ip,
+            event: status,
+            error: err,
+          }
+        )
+      }
+    }
   }
 
   async getStatusByIp(

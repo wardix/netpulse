@@ -1,5 +1,6 @@
 import type { Hono } from 'hono'
 import { apiKeyAuth } from '../middlewares/auth.middleware'
+import type { Router } from '../models/types'
 import type { MonitorService, RouterService } from '../services/monitor.service'
 
 export const setupRoutes = (
@@ -84,14 +85,20 @@ export const setupRoutes = (
     const username = body.user as string
     const ip = body.ip as string
 
-    if (!username) return c.json({ error: 'Missing user' }, 400)
-
-    await monitorService.updateFromWebhook(
-      routerId,
-      username,
-      ip || '',
-      event === 'up' ? 'online' : 'offline'
-    )
+    // Process in background asynchronously
+    monitorService
+      .updateFromWebhook(
+        routerId,
+        username,
+        ip || '',
+        event === 'up' ? 'online' : 'offline'
+      )
+      .catch((err) => {
+        console.error(
+          `[Webhook] Background error processing ${event} event for user ${username} on router ${routerId}:`,
+          err
+        )
+      })
 
     return c.json({ success: true })
   })
