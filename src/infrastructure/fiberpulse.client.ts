@@ -5,9 +5,7 @@ export class FiberpulseClient {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl =
-      env.FIBERPULSE_API_URL ||
-      'https://transit.is5x.nusa.net.id/fiberpulse/api'
+    this.baseUrl = env.FIBERPULSE_API_URL || ''
   }
 
   /**

@@ -17,13 +17,8 @@ export class NisClient {
   private apiToken: string
 
   constructor() {
-    this.ipSearchUrl =
-      env.NIS_IP_SEARCH_URL ||
-      env.NIS_API_URL ||
-      'https://transit.is5x.nusa.net.id/nis-gateway/subscriber/ip-search'
-    this.fttxByIpUrl =
-      env.NIS_FTTX_BY_IP_URL ||
-      'https://transit.is5x.nusa.net.id/nis-gateway/subscriber/fttx-by-ip'
+    this.ipSearchUrl = env.NIS_IP_SEARCH_URL || env.NIS_API_URL || ''
+    this.fttxByIpUrl = env.NIS_FTTX_BY_IP_URL || ''
     this.apiToken = env.NIS_API_TOKEN || ''
   }
 

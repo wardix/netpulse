@@ -11,8 +11,7 @@ export class OptraClient {
   private apiUrl: string
 
   constructor() {
-    this.apiUrl =
-      env.OPTRA_API_URL || 'https://transit.is5x.nusa.net.id/optra/api/check'
+    this.apiUrl = env.OPTRA_API_URL || ''
   }
 
   /**
