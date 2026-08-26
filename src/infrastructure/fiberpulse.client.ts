@@ -12,17 +12,17 @@ export class FiberpulseClient {
    * Triggers OLT synchronization for subscriber in Fiberpulse (Operator ID 1).
    * No authentication header is required.
    */
-  async syncOlt(circuitId: string): Promise<void> {
+  async syncOlt(circuitId: string): Promise<string> {
     if (!this.baseUrl) {
       logger.warn(
         'FIBERPULSE_API_URL is not configured. Skipping Fiberpulse sync-olt.'
       )
-      return
+      return ''
     }
 
     if (!circuitId) {
       logger.warn('Missing circuit_id for Fiberpulse sync-olt.')
-      return
+      return ''
     }
 
     try {
@@ -44,8 +44,10 @@ export class FiberpulseClient {
         body: JSON.stringify({}),
       })
 
+      const responseText = await response.text()
+
       if (!response.ok) {
-        const errorMsg = `Fiberpulse API returned error: ${response.status} ${response.statusText}`
+        const errorMsg = `Fiberpulse API returned error: ${response.status} ${response.statusText}${responseText ? ` - ${responseText}` : ''}`
         logger.error(errorMsg, { circuitId })
         throw new Error(errorMsg)
       }
@@ -53,6 +55,8 @@ export class FiberpulseClient {
       logger.info('Successfully notified Fiberpulse API sync-olt', {
         circuitId,
       })
+
+      return responseText
     } catch (error) {
       logger.error('Failed to dispatch request to Fiberpulse API', {
         circuitId,

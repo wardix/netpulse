@@ -36,6 +36,7 @@ export interface DispatchJob {
   id: number
   target: DispatchTarget
   payload: string
+  response_payload?: string | null
   status: DispatchJobStatus
   attempts: number
   max_attempts: number

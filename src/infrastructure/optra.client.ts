@@ -18,10 +18,10 @@ export class OptraClient {
    * Sends subscriber check notification to Optra API (Operator ID 22).
    * No authentication header is required.
    */
-  async checkSubscriber(payload: OptraCheckPayload): Promise<void> {
+  async checkSubscriber(payload: OptraCheckPayload): Promise<string> {
     if (!this.apiUrl) {
       logger.warn('OPTRA_API_URL is not configured. Skipping Optra check.')
-      return
+      return ''
     }
 
     try {
@@ -35,8 +35,10 @@ export class OptraClient {
         body: JSON.stringify(payload),
       })
 
+      const responseText = await response.text()
+
       if (!response.ok) {
-        const errorMsg = `Optra API returned error: ${response.status} ${response.statusText}`
+        const errorMsg = `Optra API returned error: ${response.status} ${response.statusText}${responseText ? ` - ${responseText}` : ''}`
         logger.error(errorMsg, { payload })
         throw new Error(errorMsg)
       }
@@ -44,6 +46,8 @@ export class OptraClient {
       logger.info('Successfully notified Optra API', {
         subscriber_id: payload.subscriber_id,
       })
+
+      return responseText
     } catch (error) {
       logger.error('Failed to dispatch request to Optra API', {
         payload,

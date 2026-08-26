@@ -27,6 +27,7 @@ function mapDispatchJob(row: Record<string, unknown>): DispatchJob {
     id: Number(row.id),
     target: row.target as DispatchTarget,
     payload: row.payload as string,
+    response_payload: row.response_payload as string | null | undefined,
     status: row.status as DispatchJobStatus,
     attempts: Number(row.attempts || 0),
     max_attempts: Number(row.max_attempts || 3),
@@ -76,13 +77,17 @@ export class DispatchJobRepository {
     )
   }
 
-  async markCompleted(id: number): Promise<void> {
+  async markCompleted(
+    id: number,
+    responsePayload?: string | null
+  ): Promise<void> {
     await db.run(
       `UPDATE dispatch_jobs
        SET status = 'completed',
+           response_payload = ?,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [id]
+      [responsePayload || null, id]
     )
   }
 

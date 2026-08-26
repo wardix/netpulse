@@ -104,15 +104,16 @@ export class DispatchWorkerService {
     await this.dispatchJobRepo.markProcessing(job.id)
 
     try {
+      let responseText: string | null = null
       if (job.target === 'optra') {
         const payload = JSON.parse(job.payload) as OptraCheckPayload
-        await this.optraClient.checkSubscriber(payload)
+        responseText = await this.optraClient.checkSubscriber(payload)
       } else if (job.target === 'fiberpulse') {
         const payload = JSON.parse(job.payload) as { circuit_id: string }
-        await this.fiberpulseClient.syncOlt(payload.circuit_id)
+        responseText = await this.fiberpulseClient.syncOlt(payload.circuit_id)
       }
 
-      await this.dispatchJobRepo.markCompleted(job.id)
+      await this.dispatchJobRepo.markCompleted(job.id, responseText)
       logger.info(
         `Dispatch job #${job.id} for target ${job.target} completed successfully`,
         {
