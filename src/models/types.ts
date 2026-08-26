@@ -24,3 +24,29 @@ export interface MikrotikActiveSession {
   address: string
   uptime: string
 }
+
+export type DispatchTarget = 'optra' | 'fiberpulse'
+export type DispatchJobStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+
+export interface DispatchJob {
+  id: number
+  target: DispatchTarget
+  payload: string
+  status: DispatchJobStatus
+  attempts: number
+  max_attempts: number
+  last_error?: string | null
+  next_run_at?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface NewDispatchJob {
+  target: DispatchTarget
+  payload: string
+  max_attempts?: number
+}

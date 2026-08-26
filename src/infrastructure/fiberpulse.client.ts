@@ -45,20 +45,20 @@ export class FiberpulseClient {
       })
 
       if (!response.ok) {
-        logger.error(
-          `Fiberpulse API returned error: ${response.status} ${response.statusText}`,
-          { circuitId }
-        )
-      } else {
-        logger.info('Successfully notified Fiberpulse API sync-olt', {
-          circuitId,
-        })
+        const errorMsg = `Fiberpulse API returned error: ${response.status} ${response.statusText}`
+        logger.error(errorMsg, { circuitId })
+        throw new Error(errorMsg)
       }
+
+      logger.info('Successfully notified Fiberpulse API sync-olt', {
+        circuitId,
+      })
     } catch (error) {
       logger.error('Failed to dispatch request to Fiberpulse API', {
         circuitId,
         error,
       })
+      throw error
     }
   }
 }

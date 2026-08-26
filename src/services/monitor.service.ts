@@ -1,9 +1,8 @@
 import type { RouterRepository } from '../repositories/router.repository'
 import type { SessionRepository } from '../repositories/session.repository'
+import type { DispatchJobRepository } from '../repositories/dispatch_job.repository'
 import type { MikrotikClient } from '../infrastructure/mikrotik.client'
 import { nisClient } from '../infrastructure/nis.client'
-import { optraClient } from '../infrastructure/optra.client'
-import { fiberpulseClient } from '../infrastructure/fiberpulse.client'
 import type { Router, RouterPublic, Session } from '../models/types'
 import { logger } from '../utils/logger'
 
@@ -11,7 +10,8 @@ export class MonitorService {
   constructor(
     private sessionRepo: SessionRepository,
     private routerRepo: RouterRepository,
-    private mikrotikClient: MikrotikClient
+    private mikrotikClient: MikrotikClient,
+    private dispatchJobRepo: DispatchJobRepository
   ) {}
 
   async syncRouterById(routerId: string): Promise<void> {
@@ -210,20 +210,42 @@ export class MonitorService {
           })
 
           if (subscriber.operator_id === 22) {
-            await optraClient.checkSubscriber({
-              subscriber_id: subscriber.subscriber_id,
-              circuit_id: subscriber.circuit_id,
-              homepass_id: subscriber.homepass_id,
+            await this.dispatchJobRepo.enqueue({
+              target: 'optra',
+              payload: JSON.stringify({
+                subscriber_id: subscriber.subscriber_id,
+                circuit_id: subscriber.circuit_id,
+                homepass_id: subscriber.homepass_id,
+              }),
             })
+            logger.info(
+              `Enqueued Optra dispatch job for subscriber ${subscriber.subscriber_id}`,
+              {
+                subscriber_id: subscriber.subscriber_id,
+                circuit_id: subscriber.circuit_id,
+                homepass_id: subscriber.homepass_id,
+              }
+            )
           } else if (subscriber.operator_id === 1) {
-            await fiberpulseClient.syncOlt(subscriber.circuit_id)
+            await this.dispatchJobRepo.enqueue({
+              target: 'fiberpulse',
+              payload: JSON.stringify({
+                circuit_id: subscriber.circuit_id,
+              }),
+            })
+            logger.info(
+              `Enqueued Fiberpulse dispatch job for circuit ${subscriber.circuit_id}`,
+              {
+                circuit_id: subscriber.circuit_id,
+              }
+            )
           }
         } else {
           logger.debug(`No FTTX subscriber found for IP ${ip}`)
         }
       } catch (err) {
         logger.error(
-          'Error during FTTX lookup / external dispatch on webhook',
+          'Error during FTTX lookup / external dispatch enqueue on webhook',
           {
             ip,
             event: status,

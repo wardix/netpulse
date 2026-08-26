@@ -50,6 +50,22 @@ if (DATABASE_URL) {
   await client`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS is_rogue BOOLEAN DEFAULT FALSE`
   await client`ALTER TABLE sessions ALTER COLUMN last_update TYPE TIMESTAMPTZ USING last_update AT TIME ZONE 'UTC'`
 
+  await client`
+    CREATE TABLE IF NOT EXISTS dispatch_jobs (
+      id SERIAL PRIMARY KEY,
+      target TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      status TEXT CHECK (status IN ('pending', 'processing', 'completed', 'failed')) NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 3,
+      last_error TEXT,
+      next_run_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `
+  await client`CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_target_status ON dispatch_jobs(target, status, next_run_at)`
+
   // bun:sql uses PostgreSQL-native $1, $2, ... placeholders.
   // All repository SQL uses ? (SQLite style), so we convert before executing.
   const convertPlaceholders = (sql: string): string => {
@@ -117,9 +133,27 @@ if (DATABASE_URL) {
   // Migrate: add is_rogue column
   try {
     sqliteDb.run(`ALTER TABLE sessions ADD COLUMN is_rogue BOOLEAN DEFAULT 0`)
-  } catch (e) {
+  } catch (_e) {
     // Ignore if column already exists
   }
+
+  sqliteDb.run(`
+    CREATE TABLE IF NOT EXISTS dispatch_jobs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      target TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      status TEXT CHECK(status IN ('pending', 'processing', 'completed', 'failed')) NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 3,
+      last_error TEXT,
+      next_run_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+  sqliteDb.run(
+    `CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_target_status ON dispatch_jobs(target, status, next_run_at)`
+  )
 
   db = {
     query: (sql: string) => {

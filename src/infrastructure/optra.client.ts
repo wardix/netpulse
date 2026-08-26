@@ -36,20 +36,20 @@ export class OptraClient {
       })
 
       if (!response.ok) {
-        logger.error(
-          `Optra API returned error: ${response.status} ${response.statusText}`,
-          { payload }
-        )
-      } else {
-        logger.info('Successfully notified Optra API', {
-          subscriber_id: payload.subscriber_id,
-        })
+        const errorMsg = `Optra API returned error: ${response.status} ${response.statusText}`
+        logger.error(errorMsg, { payload })
+        throw new Error(errorMsg)
       }
+
+      logger.info('Successfully notified Optra API', {
+        subscriber_id: payload.subscriber_id,
+      })
     } catch (error) {
       logger.error('Failed to dispatch request to Optra API', {
         payload,
         error,
       })
+      throw error
     }
   }
 }
