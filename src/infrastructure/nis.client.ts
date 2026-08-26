@@ -71,6 +71,7 @@ export class NisClient {
 
   /**
    * Verifies a list of IPs against the NIS Gateway (bulk search).
+   * Limits each request to a maximum of 64 IPs, performing iterations if more IPs are provided.
    * Returns a set of IPs that are considered valid (registered).
    */
   async verifyIps(ips: string[]): Promise<Set<string>> {
@@ -82,42 +83,54 @@ export class NisClient {
       return new Set(ips) // Assume all valid if not configured
     }
 
-    try {
-      const response = await fetch(this.ipSearchUrl, {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          Authorization: `Bearer ${this.apiToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ips }),
-      })
+    const CHUNK_SIZE = 64
+    const chunks: string[][] = []
+    for (let i = 0; i < ips.length; i += CHUNK_SIZE) {
+      chunks.push(ips.slice(i, i + CHUNK_SIZE))
+    }
 
-      if (!response.ok) {
-        logger.error(
-          `NIS Gateway (ip-search) returned error: ${response.status} ${response.statusText}`
-        )
-        throw new Error(`NIS Gateway error: ${response.status}`)
-      }
+    const validIps = new Set<string>()
 
-      const data = (await response.json()) as {
-        results?: Array<{ ip?: string }>
-      }
-      const validIps = new Set<string>()
+    for (const chunk of chunks) {
+      try {
+        const response = await fetch(this.ipSearchUrl, {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            Authorization: `Bearer ${this.apiToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ ips: chunk }),
+        })
 
-      if (data && Array.isArray(data.results)) {
-        for (const result of data.results) {
-          if (result?.ip) {
-            validIps.add(result.ip)
+        if (!response.ok) {
+          logger.error(
+            `NIS Gateway (ip-search) returned error: ${response.status} ${response.statusText}`
+          )
+          throw new Error(`NIS Gateway error: ${response.status}`)
+        }
+
+        const data = (await response.json()) as {
+          results?: Array<{ ip?: string }>
+        }
+
+        if (data && Array.isArray(data.results)) {
+          for (const result of data.results) {
+            if (result?.ip) {
+              validIps.add(result.ip)
+            }
           }
         }
+      } catch (error) {
+        logger.error('Failed to contact NIS Gateway for IP batch', {
+          batchSize: chunk.length,
+          error,
+        })
+        throw error
       }
-
-      return validIps
-    } catch (error) {
-      logger.error('Failed to contact NIS Gateway', { error })
-      throw error
     }
+
+    return validIps
   }
 }
 
