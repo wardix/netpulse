@@ -26,6 +26,7 @@ function mapDispatchJob(row: Record<string, unknown>): DispatchJob {
   return {
     id: Number(row.id),
     target: row.target as DispatchTarget,
+    event: row.event as string | null | undefined,
     payload: row.payload as string,
     response_payload: row.response_payload as string | null | undefined,
     status: row.status as DispatchJobStatus,
@@ -46,9 +47,9 @@ export class DispatchJobRepository {
   async enqueue(job: NewDispatchJob): Promise<void> {
     const maxAttempts = job.max_attempts ?? 3
     await db.run(
-      `INSERT INTO dispatch_jobs (target, payload, max_attempts, status, attempts, next_run_at, created_at, updated_at)
-       VALUES (?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [job.target, job.payload, maxAttempts]
+      `INSERT INTO dispatch_jobs (target, event, payload, max_attempts, status, attempts, next_run_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [job.target, job.event ?? null, job.payload, maxAttempts]
     )
   }
 

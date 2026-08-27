@@ -93,10 +93,11 @@ export class DispatchWorkerService {
 
   private async processJob(job: DispatchJob): Promise<void> {
     logger.debug(
-      `Processing dispatch job #${job.id} for target ${job.target}`,
+      `Processing dispatch job #${job.id} for target ${job.target} (${job.event ?? 'unknown'})`,
       {
         jobId: job.id,
         target: job.target,
+        event: job.event,
         attempt: job.attempts + 1,
       }
     )
@@ -115,10 +116,11 @@ export class DispatchWorkerService {
 
       await this.dispatchJobRepo.markCompleted(job.id, responseText)
       logger.info(
-        `Dispatch job #${job.id} for target ${job.target} completed successfully`,
+        `Dispatch job #${job.id} for target ${job.target} (${job.event ?? 'unknown'}) completed successfully`,
         {
           jobId: job.id,
           target: job.target,
+          event: job.event,
         }
       )
     } catch (err: unknown) {

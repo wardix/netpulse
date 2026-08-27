@@ -54,6 +54,7 @@ if (DATABASE_URL) {
     CREATE TABLE IF NOT EXISTS dispatch_jobs (
       id SERIAL PRIMARY KEY,
       target TEXT NOT NULL,
+      event TEXT,
       payload TEXT NOT NULL,
       response_payload TEXT,
       status TEXT CHECK (status IN ('pending', 'processing', 'completed', 'failed')) NOT NULL DEFAULT 'pending',
@@ -67,6 +68,8 @@ if (DATABASE_URL) {
   `
   await client`CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_target_status ON dispatch_jobs(target, status, next_run_at)`
   await client`ALTER TABLE dispatch_jobs ADD COLUMN IF NOT EXISTS response_payload TEXT`
+  await client`ALTER TABLE dispatch_jobs ADD COLUMN IF NOT EXISTS event TEXT`
+  await client`CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_event ON dispatch_jobs(event)`
 
   // bun:sql uses PostgreSQL-native $1, $2, ... placeholders.
   // All repository SQL uses ? (SQLite style), so we convert before executing.
@@ -143,6 +146,7 @@ if (DATABASE_URL) {
     CREATE TABLE IF NOT EXISTS dispatch_jobs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       target TEXT NOT NULL,
+      event TEXT,
       payload TEXT NOT NULL,
       response_payload TEXT,
       status TEXT CHECK(status IN ('pending', 'processing', 'completed', 'failed')) NOT NULL DEFAULT 'pending',
@@ -162,6 +166,14 @@ if (DATABASE_URL) {
   } catch (_e) {
     // Ignore if column already exists
   }
+  try {
+    sqliteDb.run(`ALTER TABLE dispatch_jobs ADD COLUMN event TEXT`)
+  } catch (_e) {
+    // Ignore if column already exists
+  }
+  sqliteDb.run(
+    `CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_event ON dispatch_jobs(event)`
+  )
 
   db = {
     query: (sql: string) => {

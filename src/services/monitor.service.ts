@@ -209,9 +209,12 @@ export class MonitorService {
             event: status,
           })
 
+          const eventType = status === 'online' ? 'up' : 'down'
+
           if (subscriber.operator_id === 22) {
             await this.dispatchJobRepo.enqueue({
               target: 'optra',
+              event: eventType,
               payload: JSON.stringify({
                 subscriber_id: subscriber.subscriber_id,
                 circuit_id: subscriber.circuit_id,
@@ -224,11 +227,13 @@ export class MonitorService {
                 subscriber_id: subscriber.subscriber_id,
                 circuit_id: subscriber.circuit_id,
                 homepass_id: subscriber.homepass_id,
+                event: eventType,
               }
             )
           } else if (subscriber.operator_id === 1) {
             await this.dispatchJobRepo.enqueue({
               target: 'fiberpulse',
+              event: eventType,
               payload: JSON.stringify({
                 circuit_id: subscriber.circuit_id,
               }),
@@ -237,6 +242,7 @@ export class MonitorService {
               `Enqueued Fiberpulse dispatch job for circuit ${subscriber.circuit_id}`,
               {
                 circuit_id: subscriber.circuit_id,
+                event: eventType,
               }
             )
           }
