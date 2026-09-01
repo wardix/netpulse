@@ -52,6 +52,21 @@ export class DispatchJobRepository {
     const subscriberIdStr =
       job.subscriber_id != null ? String(job.subscriber_id) : null
     const circuitIdStr = job.circuit_id ?? null
+
+    // Supersede any existing pending jobs for the same circuit before inserting new event
+    if (circuitIdStr) {
+      await db.run(
+        `UPDATE dispatch_jobs
+         SET status = 'failed',
+             last_error = 'Skipped: Superseded by newer event',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE target = ?
+           AND circuit_id = ?
+           AND status = 'pending'`,
+        [job.target, circuitIdStr]
+      )
+    }
+
     await db.run(
       `INSERT INTO dispatch_jobs (target, event, subscriber_id, circuit_id, payload, max_attempts, status, attempts, next_run_at, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
@@ -217,5 +232,43 @@ export class DispatchJobRepository {
         threshold,
       ]
     )
+  }
+
+  async coalescePendingDuplicates(): Promise<void> {
+    await db.run(
+      `UPDATE dispatch_jobs
+       SET status = 'failed',
+           last_error = 'Skipped: Superseded by newer pending job',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE status = 'pending'
+         AND circuit_id IS NOT NULL
+         AND circuit_id != ''
+         AND id NOT IN (
+           SELECT MAX(id)
+           FROM dispatch_jobs
+           WHERE status = 'pending'
+             AND circuit_id IS NOT NULL
+             AND circuit_id != ''
+           GROUP BY target, circuit_id
+         )`
+    )
+  }
+
+  async hasNewerPending(
+    id: number,
+    target: DispatchTarget,
+    circuitId: string
+  ): Promise<boolean> {
+    const row = await db
+      .query(
+        `SELECT id FROM dispatch_jobs
+         WHERE target = ?
+           AND circuit_id = ?
+           AND id > ?
+           AND status IN ('pending', 'processing', 'completed')
+         LIMIT 1`
+      )
+      .get(target, circuitId, id)
+    return !!row
   }
 }

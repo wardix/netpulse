@@ -100,14 +100,20 @@ export class DispatchWorkerService {
   }
 
   private async cleanupStaleJobs(): Promise<void> {
-    if (this.maxAgeMinutes <= 0) return
     try {
-      await this.dispatchJobRepo.expireStalePendingJobs(this.maxAgeMinutes)
-      logger.info(
-        `Checked and expired stale pending dispatch jobs older than ${this.maxAgeMinutes} minutes`
-      )
+      // Coalesce duplicate pending jobs for the same circuit (keep only latest)
+      await this.dispatchJobRepo.coalescePendingDuplicates()
+      logger.info('Coalesced duplicate pending dispatch jobs per circuit')
+
+      // Expire stale pending jobs older than TTL
+      if (this.maxAgeMinutes > 0) {
+        await this.dispatchJobRepo.expireStalePendingJobs(this.maxAgeMinutes)
+        logger.info(
+          `Checked and expired stale pending dispatch jobs older than ${this.maxAgeMinutes} minutes`
+        )
+      }
     } catch (err) {
-      logger.error('Failed to expire stale pending dispatch jobs', {
+      logger.error('Failed to cleanup/coalesce pending dispatch jobs', {
         error: err,
       })
     }
@@ -163,6 +169,28 @@ export class DispatchWorkerService {
         attempt: job.attempts + 1,
       }
     )
+
+    // Check if this job has been superseded by a newer event for the same circuit
+    if (job.circuit_id) {
+      const hasNewer = await this.dispatchJobRepo.hasNewerPending(
+        job.id,
+        job.target,
+        job.circuit_id
+      )
+      if (hasNewer) {
+        logger.info(
+          `Dispatch job #${job.id} for ${job.target} (${job.circuit_id}) is superseded by newer event. Skipping execution.`,
+          { jobId: job.id, target: job.target, circuit_id: job.circuit_id }
+        )
+        await this.dispatchJobRepo.markFailed(
+          job.id,
+          'Skipped: Superseded by newer event',
+          null,
+          true
+        )
+        return
+      }
+    }
 
     // Check if job is stale before performing network I/O
     if (this.maxAgeMinutes > 0 && job.created_at) {
