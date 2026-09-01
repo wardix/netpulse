@@ -55,6 +55,8 @@ if (DATABASE_URL) {
       id SERIAL PRIMARY KEY,
       target TEXT NOT NULL,
       event TEXT,
+      subscriber_id TEXT,
+      circuit_id TEXT,
       payload TEXT NOT NULL,
       response_payload TEXT,
       status TEXT CHECK (status IN ('pending', 'processing', 'completed', 'failed')) NOT NULL DEFAULT 'pending',
@@ -69,7 +71,11 @@ if (DATABASE_URL) {
   await client`CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_target_status ON dispatch_jobs(target, status, next_run_at)`
   await client`ALTER TABLE dispatch_jobs ADD COLUMN IF NOT EXISTS response_payload TEXT`
   await client`ALTER TABLE dispatch_jobs ADD COLUMN IF NOT EXISTS event TEXT`
+  await client`ALTER TABLE dispatch_jobs ADD COLUMN IF NOT EXISTS subscriber_id TEXT`
+  await client`ALTER TABLE dispatch_jobs ADD COLUMN IF NOT EXISTS circuit_id TEXT`
   await client`CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_event ON dispatch_jobs(event)`
+  await client`CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_subscriber ON dispatch_jobs(subscriber_id)`
+  await client`CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_circuit ON dispatch_jobs(circuit_id)`
 
   // bun:sql uses PostgreSQL-native $1, $2, ... placeholders.
   // All repository SQL uses ? (SQLite style), so we convert before executing.
@@ -147,6 +153,8 @@ if (DATABASE_URL) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       target TEXT NOT NULL,
       event TEXT,
+      subscriber_id TEXT,
+      circuit_id TEXT,
       payload TEXT NOT NULL,
       response_payload TEXT,
       status TEXT CHECK(status IN ('pending', 'processing', 'completed', 'failed')) NOT NULL DEFAULT 'pending',
@@ -171,8 +179,24 @@ if (DATABASE_URL) {
   } catch (_e) {
     // Ignore if column already exists
   }
+  try {
+    sqliteDb.run(`ALTER TABLE dispatch_jobs ADD COLUMN subscriber_id TEXT`)
+  } catch (_e) {
+    // Ignore if column already exists
+  }
+  try {
+    sqliteDb.run(`ALTER TABLE dispatch_jobs ADD COLUMN circuit_id TEXT`)
+  } catch (_e) {
+    // Ignore if column already exists
+  }
   sqliteDb.run(
     `CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_event ON dispatch_jobs(event)`
+  )
+  sqliteDb.run(
+    `CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_subscriber ON dispatch_jobs(subscriber_id)`
+  )
+  sqliteDb.run(
+    `CREATE INDEX IF NOT EXISTS idx_dispatch_jobs_circuit ON dispatch_jobs(circuit_id)`
   )
 
   db = {

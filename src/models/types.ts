@@ -36,6 +36,8 @@ export interface DispatchJob {
   id: number
   target: DispatchTarget
   event?: string | null
+  subscriber_id?: string | null
+  circuit_id?: string | null
   payload: string
   response_payload?: string | null
   status: DispatchJobStatus
@@ -50,6 +52,8 @@ export interface DispatchJob {
 export interface NewDispatchJob {
   target: DispatchTarget
   event?: string | null
+  subscriber_id?: string | number | null
+  circuit_id?: string | null
   payload: string
   max_attempts?: number
 }

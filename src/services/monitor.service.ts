@@ -215,6 +215,8 @@ export class MonitorService {
             await this.dispatchJobRepo.enqueue({
               target: 'optra',
               event: eventType,
+              subscriber_id: subscriber.subscriber_id,
+              circuit_id: subscriber.circuit_id,
               payload: JSON.stringify({
                 subscriber_id: subscriber.subscriber_id,
                 circuit_id: subscriber.circuit_id,
@@ -234,6 +236,8 @@ export class MonitorService {
             await this.dispatchJobRepo.enqueue({
               target: 'fiberpulse',
               event: eventType,
+              subscriber_id: subscriber.subscriber_id,
+              circuit_id: subscriber.circuit_id,
               payload: JSON.stringify({
                 circuit_id: subscriber.circuit_id,
               }),
@@ -241,6 +245,7 @@ export class MonitorService {
             logger.info(
               `Enqueued Fiberpulse dispatch job for circuit ${subscriber.circuit_id}`,
               {
+                subscriber_id: subscriber.subscriber_id,
                 circuit_id: subscriber.circuit_id,
                 event: eventType,
               }

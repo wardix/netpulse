@@ -27,6 +27,9 @@ function mapDispatchJob(row: Record<string, unknown>): DispatchJob {
     id: Number(row.id),
     target: row.target as DispatchTarget,
     event: row.event as string | null | undefined,
+    subscriber_id:
+      row.subscriber_id != null ? String(row.subscriber_id) : undefined,
+    circuit_id: row.circuit_id as string | null | undefined,
     payload: row.payload as string,
     response_payload: row.response_payload as string | null | undefined,
     status: row.status as DispatchJobStatus,
@@ -46,10 +49,20 @@ function formatDbDate(d: Date): string {
 export class DispatchJobRepository {
   async enqueue(job: NewDispatchJob): Promise<void> {
     const maxAttempts = job.max_attempts ?? 3
+    const subscriberIdStr =
+      job.subscriber_id != null ? String(job.subscriber_id) : null
+    const circuitIdStr = job.circuit_id ?? null
     await db.run(
-      `INSERT INTO dispatch_jobs (target, event, payload, max_attempts, status, attempts, next_run_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [job.target, job.event ?? null, job.payload, maxAttempts]
+      `INSERT INTO dispatch_jobs (target, event, subscriber_id, circuit_id, payload, max_attempts, status, attempts, next_run_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [
+        job.target,
+        job.event ?? null,
+        subscriberIdStr,
+        circuitIdStr,
+        job.payload,
+        maxAttempts,
+      ]
     )
   }
 
