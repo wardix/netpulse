@@ -81,6 +81,57 @@ export class DispatchJobRepository {
     return row ? mapDispatchJob(row) : null
   }
 
+  async claimNextPending(target: DispatchTarget): Promise<DispatchJob | null> {
+    const candidates = await db
+      .query(
+        `SELECT id FROM dispatch_jobs
+         WHERE target = ?
+           AND status = 'pending'
+           AND next_run_at <= CURRENT_TIMESTAMP
+         ORDER BY id ASC
+         LIMIT 10`
+      )
+      .all(target)
+
+    if (!candidates || candidates.length === 0) return null
+
+    const token = `claim-${crypto.randomUUID()}`
+
+    for (const candidate of candidates) {
+      const jobId = Number(candidate.id)
+      if (!jobId) continue
+
+      // Atomically try to claim this job
+      await db.run(
+        `UPDATE dispatch_jobs
+         SET status = 'processing',
+             last_error = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND status = 'pending'`,
+        [token, jobId]
+      )
+
+      // Verify if this worker won the claim
+      const row = await db
+        .query(
+          `SELECT * FROM dispatch_jobs
+           WHERE id = ? AND status = 'processing' AND last_error = ?`
+        )
+        .get(jobId, token)
+
+      if (row) {
+        // Clear the claim token from last_error
+        await db.run(
+          `UPDATE dispatch_jobs SET last_error = NULL WHERE id = ?`,
+          [jobId]
+        )
+        return mapDispatchJob({ ...row, last_error: null })
+      }
+    }
+
+    return null
+  }
+
   async markProcessing(id: number): Promise<void> {
     await db.run(
       `UPDATE dispatch_jobs

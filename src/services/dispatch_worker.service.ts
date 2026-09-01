@@ -10,6 +10,8 @@ import { logger } from '../utils/logger'
 
 export class DispatchWorkerService {
   private isRunning = false
+  private optraConcurrency: number
+  private fiberpulseConcurrency: number
   private pollIntervalMs: number
   private throttleDelayMs: number
   private retryBaseDelayMs: number
@@ -20,12 +22,20 @@ export class DispatchWorkerService {
     private fiberpulseClient: FiberpulseClient,
     private alertWebhookClient: AlertWebhookClient
   ) {
+    this.optraConcurrency = Math.max(
+      1,
+      parseInt(process.env.DISPATCH_OPTRA_CONCURRENCY || '5', 10)
+    )
+    this.fiberpulseConcurrency = Math.max(
+      1,
+      parseInt(process.env.DISPATCH_FIBERPULSE_CONCURRENCY || '5', 10)
+    )
     this.pollIntervalMs = parseInt(
-      process.env.DISPATCH_POLL_INTERVAL_MS || '500',
+      process.env.DISPATCH_POLL_INTERVAL_MS || '200',
       10
     )
     this.throttleDelayMs = parseInt(
-      process.env.DISPATCH_THROTTLE_DELAY_MS || '300',
+      process.env.DISPATCH_THROTTLE_DELAY_MS || '50',
       10
     )
     this.retryBaseDelayMs = parseInt(
@@ -52,15 +62,22 @@ export class DispatchWorkerService {
       })
     }
 
-    logger.info('Starting DispatchWorkerService loops', {
+    logger.info('Starting DispatchWorkerService worker pools', {
+      optraConcurrency: this.optraConcurrency,
+      fiberpulseConcurrency: this.fiberpulseConcurrency,
       pollIntervalMs: this.pollIntervalMs,
       throttleDelayMs: this.throttleDelayMs,
       retryBaseDelayMs: this.retryBaseDelayMs,
     })
 
-    // Start concurrent serial loops per target
-    this.runTargetLoop('optra')
-    this.runTargetLoop('fiberpulse')
+    // Start concurrent worker pools per target
+    for (let i = 0; i < this.optraConcurrency; i++) {
+      this.runTargetLoop('optra', i + 1)
+    }
+
+    for (let i = 0; i < this.fiberpulseConcurrency; i++) {
+      this.runTargetLoop('fiberpulse', i + 1)
+    }
   }
 
   stop(): void {
@@ -68,10 +85,13 @@ export class DispatchWorkerService {
     logger.info('Stopping DispatchWorkerService')
   }
 
-  private async runTargetLoop(target: DispatchTarget): Promise<void> {
+  private async runTargetLoop(
+    target: DispatchTarget,
+    workerId: number
+  ): Promise<void> {
     while (this.isRunning) {
       try {
-        const job = await this.dispatchJobRepo.fetchNextPending(target)
+        const job = await this.dispatchJobRepo.claimNextPending(target)
 
         if (!job) {
           await this.sleep(this.pollIntervalMs)
@@ -80,14 +100,17 @@ export class DispatchWorkerService {
 
         await this.processJob(job)
 
-        // Throttle between consecutive tasks
+        // Throttle between consecutive tasks for this worker
         if (this.throttleDelayMs > 0) {
           await this.sleep(this.throttleDelayMs)
         }
       } catch (err) {
-        logger.error(`Unexpected error in dispatch loop for ${target}`, {
-          error: err,
-        })
+        logger.error(
+          `Unexpected error in dispatch loop for ${target} [Worker #${workerId}]`,
+          {
+            error: err,
+          }
+        )
         await this.sleep(this.pollIntervalMs)
       }
     }
@@ -103,8 +126,6 @@ export class DispatchWorkerService {
         attempt: job.attempts + 1,
       }
     )
-
-    await this.dispatchJobRepo.markProcessing(job.id)
 
     try {
       let responseText: string | null = null
