@@ -168,7 +168,7 @@ export class DispatchWorkerService {
     if (this.maxAgeMinutes > 0 && job.created_at) {
       const createdAtMs = new Date(job.created_at).getTime()
       if (
-        !isNaN(createdAtMs) &&
+        !Number.isNaN(createdAtMs) &&
         Date.now() - createdAtMs > this.maxAgeMinutes * 60 * 1000
       ) {
         const ageMinutes = Math.round((Date.now() - createdAtMs) / (60 * 1000))
