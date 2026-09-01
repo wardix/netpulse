@@ -6,6 +6,7 @@ import { DispatchJobRepository } from './repositories/dispatch_job.repository'
 import { MikrotikClient } from './infrastructure/mikrotik.client'
 import { optraClient } from './infrastructure/optra.client'
 import { fiberpulseClient } from './infrastructure/fiberpulse.client'
+import { alertWebhookClient } from './infrastructure/alert_webhook.client'
 import { MonitorService, RouterService } from './services/monitor.service'
 import { DispatchWorkerService } from './services/dispatch_worker.service'
 import { setupRoutes } from './controllers/api.controller'
@@ -30,7 +31,8 @@ const routerService = new RouterService(routerRepo)
 const dispatchWorkerService = new DispatchWorkerService(
   dispatchJobRepo,
   optraClient,
-  fiberpulseClient
+  fiberpulseClient,
+  alertWebhookClient
 )
 
 // Setup Routes

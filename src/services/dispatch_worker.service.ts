@@ -1,3 +1,4 @@
+import type { AlertWebhookClient } from '../infrastructure/alert_webhook.client'
 import type { FiberpulseClient } from '../infrastructure/fiberpulse.client'
 import type {
   OptraCheckPayload,
@@ -16,7 +17,8 @@ export class DispatchWorkerService {
   constructor(
     private dispatchJobRepo: DispatchJobRepository,
     private optraClient: OptraClient,
-    private fiberpulseClient: FiberpulseClient
+    private fiberpulseClient: FiberpulseClient,
+    private alertWebhookClient: AlertWebhookClient
   ) {
     this.pollIntervalMs = parseInt(
       process.env.DISPATCH_POLL_INTERVAL_MS || '500',
@@ -123,6 +125,9 @@ export class DispatchWorkerService {
           event: job.event,
         }
       )
+
+      // Trigger LOS alert webhook if applicable
+      await this.checkAndSendLosAlert(job, responseText)
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       const nextAttempt = job.attempts + 1
@@ -158,6 +163,76 @@ export class DispatchWorkerService {
           false
         )
       }
+    }
+  }
+
+  private async checkAndSendLosAlert(
+    job: DispatchJob,
+    responseText: string | null
+  ): Promise<void> {
+    if (!responseText) return
+
+    try {
+      if (job.target === 'optra') {
+        const res = JSON.parse(responseText)
+        const cause = res.last_down_cause
+        if (
+          cause &&
+          typeof cause === 'string' &&
+          cause.toUpperCase().includes('LOS')
+        ) {
+          // Trigger if event is down or run_state is not online
+          if (job.event === 'down' || res.run_state !== 'online') {
+            let raw = res.raw_response
+            if (typeof raw === 'string') {
+              try {
+                raw = JSON.parse(raw)
+              } catch {
+                raw = {}
+              }
+            }
+            const payload = JSON.parse(job.payload || '{}')
+            const downTime =
+              raw?.lastDownTime ||
+              new Date().toISOString().replace('T', ' ').slice(0, 19)
+            const circuitId = payload.circuit_id || res.circuit_id || ''
+            const homepassId = payload.homepass_id || res.homepass_id || ''
+            const message =
+              `${cause} ${downTime} ${circuitId} ${homepassId}`.trim()
+            await this.alertWebhookClient.sendAlert(message)
+          }
+        }
+      } else if (job.target === 'fiberpulse') {
+        const res = JSON.parse(responseText)
+        const data = res?.data
+        const phaseState = data?.phase_state
+        const lastCause = data?.last_offline_cause
+        const isLos =
+          (typeof phaseState === 'string' &&
+            phaseState.toUpperCase().includes('LOS')) ||
+          (typeof lastCause === 'string' &&
+            lastCause.toUpperCase().includes('LOS'))
+
+        if (isLos) {
+          // Trigger if event is down or status is not online
+          if (job.event === 'down' || data?.status !== 'online') {
+            const payload = JSON.parse(job.payload || '{}')
+            const cause = phaseState || lastCause || 'LOS'
+            const downTime =
+              data?.last_offline_time ||
+              new Date().toISOString().replace('T', ' ').slice(0, 19)
+            const circuitId = payload.circuit_id || data?.subscriber_id || ''
+            const message = `${cause} ${downTime} ${circuitId}`.trim()
+            await this.alertWebhookClient.sendAlert(message)
+          }
+        }
+      }
+    } catch (err) {
+      logger.error('Error checking/dispatching LOS alert', {
+        jobId: job.id,
+        target: job.target,
+        error: err,
+      })
     }
   }
 }
