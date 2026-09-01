@@ -196,38 +196,49 @@ export class DispatchWorkerService {
     try {
       if (job.target === 'optra') {
         const res = JSON.parse(responseText)
+        let raw = res.raw_response
+        if (typeof raw === 'string') {
+          try {
+            raw = JSON.parse(raw)
+          } catch {
+            raw = {}
+          }
+        }
+
+        const runState = (res.run_state || raw?.runState || '').toLowerCase()
+        // Do not send alert if current run_state is online
+        if (runState === 'online') {
+          return
+        }
+
         const cause = res.last_down_cause
         if (
           cause &&
           typeof cause === 'string' &&
           cause.toUpperCase().includes('LOS')
         ) {
-          // Trigger if event is down or run_state is not online
-          if (job.event === 'down' || res.run_state !== 'online') {
-            let raw = res.raw_response
-            if (typeof raw === 'string') {
-              try {
-                raw = JSON.parse(raw)
-              } catch {
-                raw = {}
-              }
-            }
-            const payload = JSON.parse(job.payload || '{}')
-            const downTime =
-              raw?.lastDownTime ||
-              new Date().toISOString().replace('T', ' ').slice(0, 19)
-            const circuitId = payload.circuit_id || res.circuit_id || ''
-            const homepassId = payload.homepass_id || res.homepass_id || ''
-            const message =
-              `${cause} ${downTime} ${circuitId} ${homepassId}`.trim()
-            await this.alertWebhookClient.sendAlert(message)
-          }
+          const payload = JSON.parse(job.payload || '{}')
+          const downTime =
+            raw?.lastDownTime ||
+            new Date().toISOString().replace('T', ' ').slice(0, 19)
+          const circuitId = payload.circuit_id || res.circuit_id || ''
+          const homepassId = payload.homepass_id || res.homepass_id || ''
+          const message =
+            `${cause} ${downTime} ${circuitId} ${homepassId}`.trim()
+          await this.alertWebhookClient.sendAlert(message)
         }
       } else if (job.target === 'fiberpulse') {
         const res = JSON.parse(responseText)
         const data = res?.data
+        const status = (data?.status || '').toLowerCase()
         const phaseState = data?.phase_state
         const lastCause = data?.last_offline_cause
+
+        // Do not send alert if current status is online or phase_state is working
+        if (status === 'online' || phaseState?.toLowerCase() === 'working') {
+          return
+        }
+
         const isLos =
           (typeof phaseState === 'string' &&
             phaseState.toUpperCase().includes('LOS')) ||
@@ -235,17 +246,14 @@ export class DispatchWorkerService {
             lastCause.toUpperCase().includes('LOS'))
 
         if (isLos) {
-          // Trigger if event is down or status is not online
-          if (job.event === 'down' || data?.status !== 'online') {
-            const payload = JSON.parse(job.payload || '{}')
-            const cause = phaseState || lastCause || 'LOS'
-            const downTime =
-              data?.last_offline_time ||
-              new Date().toISOString().replace('T', ' ').slice(0, 19)
-            const circuitId = payload.circuit_id || data?.subscriber_id || ''
-            const message = `${cause} ${downTime} ${circuitId}`.trim()
-            await this.alertWebhookClient.sendAlert(message)
-          }
+          const payload = JSON.parse(job.payload || '{}')
+          const cause = phaseState || lastCause || 'LOS'
+          const downTime =
+            data?.last_offline_time ||
+            new Date().toISOString().replace('T', ' ').slice(0, 19)
+          const circuitId = payload.circuit_id || data?.subscriber_id || ''
+          const message = `${cause} ${downTime} ${circuitId}`.trim()
+          await this.alertWebhookClient.sendAlert(message)
         }
       }
     } catch (err) {
