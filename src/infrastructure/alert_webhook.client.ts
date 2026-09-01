@@ -3,9 +3,13 @@ import { logger } from '../utils/logger'
 
 export class AlertWebhookClient {
   private webhookUrl: string
+  private token: string
+  private recipient: string
 
   constructor() {
     this.webhookUrl = env.LOS_WEBHOOK_URL || env.ALERT_WEBHOOK_URL || ''
+    this.token = env.LOS_WEBHOOK_TOKEN || env.ALERT_WEBHOOK_TOKEN || ''
+    this.recipient = env.LOS_WEBHOOK_TO || env.ALERT_WEBHOOK_TO || ''
   }
 
   /**
@@ -23,19 +27,36 @@ export class AlertWebhookClient {
       logger.info('Sending LOS alert webhook', {
         message,
         url: this.webhookUrl,
+        to: this.recipient,
       })
+
+      const headers: Record<string, string> = {
+        accept: 'application/json',
+        'Content-Type': 'application/json',
+      }
+
+      if (this.token) {
+        headers.Authorization = this.token.startsWith('Bearer ')
+          ? this.token
+          : `Bearer ${this.token}`
+      }
+
+      const body = {
+        to: this.recipient,
+        body: 'text',
+        text: message,
+      }
+
       const response = await fetch(this.webhookUrl, {
         method: 'POST',
-        headers: {
-          accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message }),
+        headers,
+        body: JSON.stringify(body),
       })
 
       if (!response.ok) {
+        const responseText = await response.text()
         logger.error(
-          `LOS alert webhook returned error: ${response.status} ${response.statusText}`,
+          `LOS alert webhook returned error: ${response.status} ${response.statusText}${responseText ? ` - ${responseText}` : ''}`,
           { message }
         )
       } else {
