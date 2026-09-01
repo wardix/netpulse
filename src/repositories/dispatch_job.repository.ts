@@ -197,4 +197,25 @@ export class DispatchJobRepository {
        WHERE status = 'processing'`
     )
   }
+
+  async expireStalePendingJobs(maxAgeMinutes: number): Promise<void> {
+    if (maxAgeMinutes <= 0) return
+
+    const threshold = new Date(
+      Date.now() - maxAgeMinutes * 60 * 1000
+    ).toISOString()
+
+    await db.run(
+      `UPDATE dispatch_jobs
+       SET status = 'failed',
+           last_error = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE status = 'pending'
+         AND created_at < ?`,
+      [
+        `Skipped: Stale pending job older than ${maxAgeMinutes} minutes`,
+        threshold,
+      ]
+    )
+  }
 }

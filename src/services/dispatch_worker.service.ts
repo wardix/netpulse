@@ -15,6 +15,7 @@ export class DispatchWorkerService {
   private pollIntervalMs: number
   private throttleDelayMs: number
   private retryBaseDelayMs: number
+  private maxAgeMinutes: number
 
   constructor(
     private dispatchJobRepo: DispatchJobRepository,
@@ -42,6 +43,10 @@ export class DispatchWorkerService {
       process.env.DISPATCH_RETRY_BASE_DELAY_MS || '3000',
       10
     )
+    this.maxAgeMinutes = parseInt(
+      process.env.DISPATCH_JOB_MAX_AGE_MINUTES || '120',
+      10
+    )
   }
 
   private sleep(ms: number): Promise<void> {
@@ -62,12 +67,16 @@ export class DispatchWorkerService {
       })
     }
 
+    // Auto-expire stale pending jobs on startup
+    await this.cleanupStaleJobs()
+
     logger.info('Starting DispatchWorkerService worker pools', {
       optraConcurrency: this.optraConcurrency,
       fiberpulseConcurrency: this.fiberpulseConcurrency,
       pollIntervalMs: this.pollIntervalMs,
       throttleDelayMs: this.throttleDelayMs,
       retryBaseDelayMs: this.retryBaseDelayMs,
+      maxAgeMinutes: this.maxAgeMinutes,
     })
 
     // Start concurrent worker pools per target
@@ -78,11 +87,39 @@ export class DispatchWorkerService {
     for (let i = 0; i < this.fiberpulseConcurrency; i++) {
       this.runTargetLoop('fiberpulse', i + 1)
     }
+
+    // Start periodic background cleanup for stale jobs
+    if (this.maxAgeMinutes > 0) {
+      this.runStaleCleanupLoop()
+    }
   }
 
   stop(): void {
     this.isRunning = false
     logger.info('Stopping DispatchWorkerService')
+  }
+
+  private async cleanupStaleJobs(): Promise<void> {
+    if (this.maxAgeMinutes <= 0) return
+    try {
+      await this.dispatchJobRepo.expireStalePendingJobs(this.maxAgeMinutes)
+      logger.info(
+        `Checked and expired stale pending dispatch jobs older than ${this.maxAgeMinutes} minutes`
+      )
+    } catch (err) {
+      logger.error('Failed to expire stale pending dispatch jobs', {
+        error: err,
+      })
+    }
+  }
+
+  private async runStaleCleanupLoop(): Promise<void> {
+    const intervalMs = 5 * 60 * 1000 // Run every 5 minutes
+    while (this.isRunning) {
+      await this.sleep(intervalMs)
+      if (!this.isRunning) break
+      await this.cleanupStaleJobs()
+    }
   }
 
   private async runTargetLoop(
@@ -126,6 +163,28 @@ export class DispatchWorkerService {
         attempt: job.attempts + 1,
       }
     )
+
+    // Check if job is stale before performing network I/O
+    if (this.maxAgeMinutes > 0 && job.created_at) {
+      const createdAtMs = new Date(job.created_at).getTime()
+      if (
+        !isNaN(createdAtMs) &&
+        Date.now() - createdAtMs > this.maxAgeMinutes * 60 * 1000
+      ) {
+        const ageMinutes = Math.round((Date.now() - createdAtMs) / (60 * 1000))
+        logger.warn(
+          `Dispatch job #${job.id} for ${job.target} is stale (${ageMinutes}m old > ${this.maxAgeMinutes}m limit). Skipping execution.`,
+          { jobId: job.id, target: job.target, ageMinutes }
+        )
+        await this.dispatchJobRepo.markFailed(
+          job.id,
+          `Skipped: Stale job (${ageMinutes}m old > ${this.maxAgeMinutes}m limit)`,
+          null,
+          true
+        )
+        return
+      }
+    }
 
     try {
       let responseText: string | null = null
