@@ -5,11 +5,13 @@ export class AlertWebhookClient {
   private webhookUrl: string
   private token: string
   private recipient: string
+  private timeoutMs: number
 
   constructor() {
     this.webhookUrl = env.LOS_WEBHOOK_URL || env.ALERT_WEBHOOK_URL || ''
     this.token = env.LOS_WEBHOOK_TOKEN || env.ALERT_WEBHOOK_TOKEN || ''
     this.recipient = env.LOS_WEBHOOK_TO || env.ALERT_WEBHOOK_TO || ''
+    this.timeoutMs = parseInt(env.LOS_WEBHOOK_TIMEOUT_MS || '10000', 10)
   }
 
   /**
@@ -28,6 +30,7 @@ export class AlertWebhookClient {
         message,
         url: this.webhookUrl,
         to: this.recipient,
+        timeoutMs: this.timeoutMs,
       })
 
       const headers: Record<string, string> = {
@@ -51,6 +54,7 @@ export class AlertWebhookClient {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.timeoutMs),
       })
 
       if (!response.ok) {

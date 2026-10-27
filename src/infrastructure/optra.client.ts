@@ -9,9 +9,11 @@ export interface OptraCheckPayload {
 
 export class OptraClient {
   private apiUrl: string
+  private timeoutMs: number
 
   constructor() {
     this.apiUrl = env.OPTRA_API_URL || ''
+    this.timeoutMs = parseInt(env.OPTRA_TIMEOUT_MS || '10000', 10)
   }
 
   /**
@@ -25,7 +27,10 @@ export class OptraClient {
     }
 
     try {
-      logger.info('Dispatching check request to Optra API', { payload })
+      logger.info('Dispatching check request to Optra API', {
+        payload,
+        timeoutMs: this.timeoutMs,
+      })
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
@@ -33,6 +38,7 @@ export class OptraClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(this.timeoutMs),
       })
 
       const responseText = await response.text()

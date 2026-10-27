@@ -101,6 +101,10 @@ export class DispatchWorkerService {
 
   private async cleanupStaleJobs(): Promise<void> {
     try {
+      // Recover stuck processing jobs (older than 5 minutes)
+      await this.dispatchJobRepo.recoverStuckProcessingJobs(5)
+      logger.info('Checked and recovered any stuck processing dispatch jobs')
+
       // Coalesce duplicate pending jobs for the same circuit (keep only latest)
       await this.dispatchJobRepo.coalescePendingDuplicates()
       logger.info('Coalesced duplicate pending dispatch jobs per circuit')

@@ -213,6 +213,27 @@ export class DispatchJobRepository {
     )
   }
 
+  async recoverStuckProcessingJobs(stuckThresholdMinutes = 5): Promise<void> {
+    if (stuckThresholdMinutes <= 0) return
+
+    const threshold = new Date(
+      Date.now() - stuckThresholdMinutes * 60 * 1000
+    ).toISOString()
+
+    await db.run(
+      `UPDATE dispatch_jobs
+       SET status = 'pending',
+           last_error = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE status = 'processing'
+         AND updated_at < ?`,
+      [
+        `Recovered: Job was stuck in processing state for > ${stuckThresholdMinutes} minutes`,
+        threshold,
+      ]
+    )
+  }
+
   async expireStalePendingJobs(maxAgeMinutes: number): Promise<void> {
     if (maxAgeMinutes <= 0) return
 

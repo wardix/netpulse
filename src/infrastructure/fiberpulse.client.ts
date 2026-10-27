@@ -3,9 +3,11 @@ import { logger } from '../utils/logger'
 
 export class FiberpulseClient {
   private baseUrl: string
+  private timeoutMs: number
 
   constructor() {
     this.baseUrl = env.FIBERPULSE_API_URL || ''
+    this.timeoutMs = parseInt(env.FIBERPULSE_TIMEOUT_MS || '10000', 10)
   }
 
   /**
@@ -33,6 +35,7 @@ export class FiberpulseClient {
       logger.info('Dispatching sync-olt request to Fiberpulse API', {
         circuitId,
         url,
+        timeoutMs: this.timeoutMs,
       })
 
       const response = await fetch(url, {
@@ -42,6 +45,7 @@ export class FiberpulseClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),
+        signal: AbortSignal.timeout(this.timeoutMs),
       })
 
       const responseText = await response.text()
